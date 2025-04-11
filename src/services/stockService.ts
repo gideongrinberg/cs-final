@@ -1,4 +1,3 @@
-
 import { generatePriceHistory, calculateChange } from '@/utils/stockUtils';
 
 export interface Stock {
@@ -23,7 +22,12 @@ export interface StockDetail extends Stock {
 
 export interface PriceData {
   date: Date;
-  price: number;
+  price?: number;    // Used for simple line charts
+  open?: number;     // For OHLC/candlestick
+  high?: number;     // For OHLC/candlestick
+  low?: number;      // For OHLC/candlestick
+  close?: number;    // For OHLC/candlestick
+  volume?: number;   // Trading volume
 }
 
 // Simulated stock data
@@ -175,26 +179,176 @@ export const getStockByTicker = (ticker: string): StockDetail | undefined => {
   };
 };
 
+// Helper to determine appropriate data points based on timeframe and resolution
+const getDataPointCount = (
+  timeframe: string,
+  resolution: string
+): { days: number; dataPoints: number } => {
+  let days: number;
+  let dataPoints: number;
+  
+  // Determine days based on timeframe
+  switch (timeframe) {
+    case '1D': days = 1; break;
+    case '1W': days = 7; break;
+    case '1M': days = 30; break;
+    case '3M': days = 90; break;
+    case '1Y': days = 365; break;
+    case '5Y': days = 1825; break;
+    default: days = 1;
+  }
+  
+  // Determine data points based on resolution and timeframe
+  switch (resolution) {
+    case '1m':
+      dataPoints = days === 1 ? 390 : 0; // Market hours in minutes (6.5 hours * 60)
+      break;
+    case '5m':
+      dataPoints = days === 1 ? 78 : (days <= 7 ? 78 * days : 0); // 6.5 hours / 5 minutes
+      break;
+    case '15m':
+      dataPoints = days === 1 ? 26 : (days <= 30 ? Math.min(26 * days, 1000) : 0);
+      break;
+    case '30m':
+      dataPoints = days === 1 ? 13 : (days <= 90 ? Math.min(13 * days, 1000) : 0);
+      break;
+    case '1h':
+      dataPoints = days === 1 ? 7 : Math.min(7 * days, 1000);
+      break;
+    case '1d':
+      dataPoints = days;
+      break;
+    default:
+      dataPoints = days;
+  }
+  
+  // Ensure a reasonable number of data points
+  dataPoints = Math.min(dataPoints, 1000);
+  
+  return { days, dataPoints };
+};
+
+// Generate OHLC data
+const generateOHLCData = (
+  ticker: string,
+  days: number,
+  dataPoints: number,
+  basePrice: number,
+  volatility: number
+): PriceData[] => {
+  const now = new Date();
+  const result: PriceData[] = [];
+  
+  // Start price is the base price adjusted by a small random amount
+  let prevClose = basePrice * (1 + (Math.random() * 0.02 - 0.01));
+  
+  // Time interval between data points in milliseconds
+  const interval = days * 24 * 60 * 60 * 1000 / dataPoints;
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+  const marketOpenHour = 9.5; // 9:30 AM
+  const marketCloseHour = 16; // 4:00 PM
+  const hoursPerDay = marketCloseHour - marketOpenHour;
+  
+  // Generate data points
+  for (let i = dataPoints - 1; i >= 0; i--) {
+    // Calculate the date for this data point
+    let timestamp = new Date(now.getTime() - i * interval);
+    
+    // For intraday data, only include market hours
+    if (days === 1) {
+      const hour = marketOpenHour + (i / dataPoints) * hoursPerDay;
+      timestamp = new Date(now.setHours(Math.floor(hour), (hour % 1) * 60, 0, 0));
+    }
+    
+    // If this is daily data, fix time to market close
+    if (interval >= millisecondsPerDay) {
+      timestamp = new Date(timestamp.setHours(16, 0, 0, 0));
+    }
+    
+    // Skip weekends for non-intraday data
+    if (interval >= millisecondsPerDay) {
+      const day = timestamp.getDay();
+      if (day === 0 || day === 6) {
+        continue;
+      }
+    }
+    
+    // Generate OHLC values with realistic patterns
+    const dayVolatility = volatility * (0.8 + Math.random() * 0.4); // Randomize volatility slightly
+    const range = prevClose * dayVolatility;
+    
+    // Create some patterns like gaps up/down and trending days
+    const trend = Math.random() > 0.5 ? 1 : -1; // Randomly decide trend direction
+    const trendStrength = Math.random() * 0.6 + 0.2; // Random trend strength between 0.2 and 0.8
+    
+    let open = i === dataPoints - 1 ? prevClose : prevClose * (1 + (Math.random() * 0.01 - 0.005));
+    let close = open * (1 + trend * trendStrength * dayVolatility);
+    
+    // Ensure high is higher than both open and close
+    const highAboveMax = Math.max(open, close) * (1 + Math.random() * dayVolatility * 0.5);
+    
+    // Ensure low is lower than both open and close
+    const lowBelowMin = Math.min(open, close) * (1 - Math.random() * dayVolatility * 0.5);
+    
+    const high = highAboveMax;
+    const low = lowBelowMin;
+    
+    // Generate volume that correlates with price movement (higher volume on bigger moves)
+    const priceMove = Math.abs(close - open) / open;
+    const baseVolume = Math.floor(Math.random() * 200000) + 100000; // Base volume between 100K and 300K
+    const volumeMultiplier = 1 + priceMove * 20; // More volume on bigger moves
+    const volume = Math.floor(baseVolume * volumeMultiplier);
+    
+    result.push({
+      date: timestamp,
+      open,
+      high,
+      low,
+      close,
+      volume,
+      price: close // For backward compatibility
+    });
+    
+    prevClose = close;
+  }
+  
+  return result;
+};
+
 // Get price history for a ticker and timeframe
 export const getPriceHistory = (
   ticker: string,
-  timeframe: '1D' | '1W' | '1M' | '1Y' | '5Y' = '1D'
+  timeframe: '1D' | '1W' | '1M' | '3M' | '1Y' | '5Y' = '1D',
+  resolution: '1m' | '5m' | '15m' | '30m' | '1h' | '1d' = '1d'
 ): PriceData[] => {
   const stock = popularStocks.find(s => s.ticker === ticker);
   if (!stock) return [];
   
-  const days = timeframe === '1D' ? 1 :
-               timeframe === '1W' ? 7 :
-               timeframe === '1M' ? 30 :
-               timeframe === '1Y' ? 365 : 1825;
-               
-  const dataPoints = timeframe === '1D' ? 24 :
-                    timeframe === '1W' ? 7 * 8 :
-                    timeframe === '1M' ? 30 * 2 :
-                    timeframe === '1Y' ? 365 :
-                    timeframe === '5Y' ? 365 : 24;
+  const { days, dataPoints } = getDataPointCount(timeframe, resolution);
   
-  return generatePriceHistory(ticker, days, dataPoints, stock.price, 0.02);
+  if (dataPoints === 0) {
+    // If the resolution doesn't make sense for the timeframe, fall back to a sensible default
+    if (timeframe === '1D') return getPriceHistory(ticker, timeframe, '5m');
+    if (timeframe === '1W') return getPriceHistory(ticker, timeframe, '30m');
+    if (timeframe === '1M') return getPriceHistory(ticker, timeframe, '1h');
+    return getPriceHistory(ticker, timeframe, '1d');
+  }
+  
+  // Different stocks have different volatility
+  const volatilityMap: {[key: string]: number} = {
+    'TSLA': 0.04, // High volatility
+    'META': 0.03,
+    'AMZN': 0.025,
+    'NFLX': 0.03,
+    'AAPL': 0.018, // Lower volatility
+    'MSFT': 0.015,
+    'GOOGL': 0.02,
+    'DIS': 0.022
+  };
+  
+  const volatility = volatilityMap[ticker] || 0.02;
+  
+  return generateOHLCData(ticker, days, dataPoints, stock.price, volatility);
 };
 
 // Interface for portfolio holdings
