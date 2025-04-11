@@ -12,7 +12,8 @@ import {
   ResponsiveContainer,
   TooltipProps,
   Legend,
-  ReferenceLine
+  ComposedChart,
+  Line
 } from 'recharts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,51 @@ interface OHLCData {
   low: number;
   close: number;
 }
+
+// Custom OHLC marker component for the candlestick visualization
+const CustomOHLCMarker = (props: any) => {
+  const { cx, cy, open, close, low, high, index } = props;
+  
+  const isPositive = close >= open;
+  const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+  
+  // Define width of the open/close lines
+  const openCloseLineWidth = 8;
+  
+  return (
+    <g key={`ohlc-${index}`}>
+      {/* Vertical line from low to high */}
+      <line 
+        x1={cx} 
+        y1={low} 
+        x2={cx} 
+        y2={high} 
+        stroke={color} 
+        strokeWidth={1} 
+      />
+      
+      {/* Horizontal line at open price */}
+      <line 
+        x1={cx - openCloseLineWidth} 
+        y1={open} 
+        x2={cx} 
+        y2={open} 
+        stroke={color} 
+        strokeWidth={1.5} 
+      />
+      
+      {/* Horizontal line at close price */}
+      <line 
+        x1={cx} 
+        y1={close} 
+        x2={cx + openCloseLineWidth} 
+        y2={close} 
+        stroke={color} 
+        strokeWidth={1.5} 
+      />
+    </g>
+  );
+};
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -290,9 +336,9 @@ const StockChart: React.FC<StockChartProps> = ({
         </BarChart>
       );
     } else {
-      // OHLC Chart
+      // OHLC Chart - Properly implemented
       return (
-        <BarChart
+        <ComposedChart
           data={ohlcChartData}
           margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
         >
@@ -315,66 +361,74 @@ const StockChart: React.FC<StockChartProps> = ({
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
-          {/* Render the OHLC price range line for each data point */}
-          {ohlcChartData.map((entry, index) => (
-            <React.Fragment key={`ohlc-${index}`}>
-              {/* Vertical line from low to high */}
-              <ReferenceLine
-                segment={[
-                  { x: entry.date, y: entry.low },
-                  { x: entry.date, y: entry.high }
-                ]}
-                stroke="#8884d8"
-                strokeWidth={1}
-                ifOverflow="extendDomain"
-              />
-              {/* Horizontal line at open price */}
-              <ReferenceLine
-                segment={[
-                  { x: +(new Date(entry.date).getTime() - 200000), y: entry.open },
-                  { x: entry.date, y: entry.open }
-                ]}
-                stroke="#82ca9d"
-                strokeWidth={1.5}
-                ifOverflow="extendDomain"
-              />
-              {/* Horizontal line at close price */}
-              <ReferenceLine
-                segment={[
-                  { x: entry.date, y: entry.close },
-                  { x: +(new Date(entry.date).getTime() + 200000), y: entry.close }
-                ]}
-                stroke={entry.close >= entry.open ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)"}
-                strokeWidth={1.5}
-                ifOverflow="extendDomain"
-              />
-            </React.Fragment>
-          ))}
-          <Bar 
-            dataKey="open" 
-            fillOpacity={0}
-            strokeOpacity={0}
+          
+          {/* Display the price marker for each data point */}
+          <Bar
+            dataKey="open"
+            fill="transparent"
+            stroke="transparent"
             name="Open"
+            isAnimationActive={false}
           />
-          <Bar 
-            dataKey="high" 
-            fillOpacity={0}
-            strokeOpacity={0}
+          <Bar
+            dataKey="high"
+            fill="transparent"
+            stroke="transparent"
             name="High"
+            isAnimationActive={false}
           />
-          <Bar 
-            dataKey="low" 
-            fillOpacity={0}
-            strokeOpacity={0}
+          <Bar
+            dataKey="low"
+            fill="transparent"
+            stroke="transparent"
             name="Low"
+            isAnimationActive={false}
           />
-          <Bar 
-            dataKey="close" 
-            fillOpacity={0}
-            strokeOpacity={0}
+          <Bar
+            dataKey="close"
+            fill="transparent"
+            stroke="transparent"
             name="Close"
+            isAnimationActive={false}
           />
-        </BarChart>
+          
+          {/* Custom rendering of OHLC markers */}
+          {ohlcChartData.map((entry, index) => {
+            const x = 50 + (index * ((window.innerWidth * 0.75) / ohlcChartData.length));
+            
+            // Determine color based on price movement
+            const isPositive = entry.close >= entry.open;
+            const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+            
+            return (
+              <Line
+                key={`ohlc-${index}`}
+                type="monotone"
+                dataKey="close"
+                dot={(props) => {
+                  // Only render dot for this specific index
+                  if (props.index !== index) return null;
+                  
+                  return (
+                    <CustomOHLCMarker
+                      cx={props.cx}
+                      cy={props.cy}
+                      open={props.cy + (entry.open - entry.close)}
+                      close={props.cy}
+                      high={props.cy - (entry.high - entry.close)}
+                      low={props.cy + (entry.close - entry.low)}
+                      index={index}
+                    />
+                  );
+                }}
+                activeDot={false}
+                stroke="transparent"
+                isAnimationActive={false}
+                legendType="none"
+              />
+            );
+          })}
+        </ComposedChart>
       );
     }
   };
