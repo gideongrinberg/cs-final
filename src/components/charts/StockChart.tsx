@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, LineData, HistogramData, AreaSeries, AreaData, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { getPriceHistory } from '@/services/stockService';
+import { getPriceHistory, TimeFrame, Resolution } from '@/services/stockService';
 import { formatCurrency } from '@/utils/stockUtils';
 import { 
   Select,
@@ -31,9 +30,7 @@ interface StockChartProps {
   percentChange: number;
 }
 
-type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
 type ChartType = 'area' | 'candle' | 'bar';
-type Resolution = '1sec' | '5sec' | '30sec' | '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -205,7 +202,7 @@ const StockChart: React.FC<StockChartProps> = ({
         });
 
         const areaData = data.map(item => ({
-          time: (Math.floor(item.date.getTime() / 1000)) as number,
+          time: item.date.getTime() / 1000 as any,
           value: item.price,
         }));
 
@@ -249,7 +246,7 @@ const StockChart: React.FC<StockChartProps> = ({
           const low = Math.min(open, currentPrice) - Math.random() * variance;
           
           candleData.push({
-            time: (Math.floor(data[i].date.getTime() / 1000)) as number,
+            time: data[i].date.getTime() / 1000 as any,
             open,
             high,
             low,
@@ -282,7 +279,7 @@ const StockChart: React.FC<StockChartProps> = ({
         });
 
         const barData = data.map(item => ({
-          time: (Math.floor(item.date.getTime() / 1000)) as number,
+          time: item.date.getTime() / 1000 as any,
           value: item.price,
           color: fillColor,
         }));
