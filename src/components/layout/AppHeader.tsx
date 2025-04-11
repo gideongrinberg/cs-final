@@ -1,12 +1,14 @@
 
 import React from 'react';
-import { Bell, Search, RefreshCw } from 'lucide-react';
+import { Bell, Search, RefreshCw, LogOut } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useStockContext } from '@/contexts/StockContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AppHeader = () => {
   const { refreshData, loadingStocks } = useStockContext();
+  const { signOut } = useAuth();
 
   return (
     <header className="border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -35,6 +37,9 @@ const AppHeader = () => {
             </Button>
             <Button variant="ghost" size="icon">
               <Bell className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={signOut}>
+              <LogOut className="h-5 w-5" />
             </Button>
             <Button className="ml-2">Deposit Funds</Button>
           </div>
