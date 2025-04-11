@@ -33,7 +33,7 @@ interface StockChartProps {
 
 type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
 type ChartType = 'area' | 'candle' | 'bar';
-type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
+type Resolution = '1sec' | '5sec' | '30sec' | '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -81,13 +81,13 @@ const StockChart: React.FC<StockChartProps> = ({
         mode: 0, // Normal crosshair mode
         vertLine: {
           color: isDarkTheme ? 'rgba(255, 255, 255, 0.3)' : 'rgba(42, 46, 57, 0.3)',
-          width: 1,
-          style: 1, // Solid line
+          width: 1 as const,
+          style: 1 as const, // Solid line
         },
         horzLine: {
           color: isDarkTheme ? 'rgba(255, 255, 255, 0.3)' : 'rgba(42, 46, 57, 0.3)',
-          width: 1,
-          style: 1, // Solid line
+          width: 1 as const,
+          style: 1 as const, // Solid line
         },
       },
       handleScale: {
@@ -192,17 +192,6 @@ const StockChart: React.FC<StockChartProps> = ({
       if (chartType === 'area') {
         // Create area series for area chart
         const areaSeries = chartRef.current.addSeries(AreaSeries);
-        // {
-        //   lineColor: borderColor,
-        //   topColor: isPositive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
-        //   bottomColor: isPositive ? 'rgba(16, 185, 129, 0.0)' : 'rgba(239, 68, 68, 0.0)',
-        //   lineWidth: 2,
-        //   priceFormat: {
-        //     type: 'price',
-        //     precision: 2,
-        //     minMove: 0.01,
-        //   },
-        // }
         areaSeries.applyOptions({
           lineColor: borderColor,
           topColor: isPositive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
@@ -215,9 +204,8 @@ const StockChart: React.FC<StockChartProps> = ({
           }
         });
 
-        const areaData: AreaData[] = data.map(item => ({
-          // Convert to unix timestamp in seconds
-          time: Math.floor(item.date.getTime() / 1000) as number,
+        const areaData = data.map(item => ({
+          time: (Math.floor(item.date.getTime() / 1000)) as number,
           value: item.price,
         }));
 
@@ -251,7 +239,7 @@ const StockChart: React.FC<StockChartProps> = ({
         });
 
         // Generate OHLC data from price data
-        const candleData: CandlestickData[] = [];
+        const candleData = [];
         for (let i = 0; i < data.length; i++) {
           const currentPrice = data[i].price;
           
@@ -261,7 +249,7 @@ const StockChart: React.FC<StockChartProps> = ({
           const low = Math.min(open, currentPrice) - Math.random() * variance;
           
           candleData.push({
-            time: Math.floor(data[i].date.getTime() / 1000) as number,
+            time: (Math.floor(data[i].date.getTime() / 1000)) as number,
             open,
             high,
             low,
@@ -293,8 +281,8 @@ const StockChart: React.FC<StockChartProps> = ({
           },
         });
 
-        const barData: HistogramData[] = data.map(item => ({
-          time: Math.floor(item.date.getTime() / 1000) as number,
+        const barData = data.map(item => ({
+          time: (Math.floor(item.date.getTime() / 1000)) as number,
           value: item.price,
           color: fillColor,
         }));
@@ -344,27 +332,30 @@ const StockChart: React.FC<StockChartProps> = ({
   const getAvailableResolutions = (): Resolution[] => {
     switch (timeframe) {
       case '1D':
-        return ['1min', '5min', '15min', '30min'];
+        return ['1sec', '5sec', '30sec', '1min', '5min', '15min', '30min'];
       case '5D':
-        return ['5min', '15min', '30min', '1hour'];
+        return ['30sec', '1min', '5min', '15min', '30min', '1hour'];
       case '1W':
-        return ['5min', '15min', '30min', '1hour'];
+        return ['1min', '5min', '15min', '30min', '1hour'];
       case '1M':
-        return ['15min', '30min', '1hour', '1day'];
+        return ['5min', '15min', '30min', '1hour', '1day'];
       case '3M':
       case '6M':
-        return ['1hour', '1day', '1week'];
+        return ['30min', '1hour', '1day', '1week'];
       case '1Y':
         return ['1hour', '1day', '1week'];
       case '5Y':
         return ['1day', '1week'];
       default:
-        return ['1min', '5min', '15min', '30min', '1hour', '1day', '1week'];
+        return ['1sec', '5sec', '30sec', '1min', '5min', '15min', '30min', '1hour', '1day', '1week'];
     }
   };
 
   const formatResolution = (res: Resolution): string => {
     switch (res) {
+      case '1sec': return '1 Sec';
+      case '5sec': return '5 Sec';
+      case '30sec': return '30 Sec';
       case '1min': return '1 Min';
       case '5min': return '5 Min';
       case '15min': return '15 Min';

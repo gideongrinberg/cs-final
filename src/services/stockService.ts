@@ -195,7 +195,7 @@ export const getStockByTicker = (ticker: string): StockDetail | undefined => {
 export const getPriceHistory = (
   ticker: string,
   timeframe: '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y' = '1D',
-  resolution: '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week' = '1min'
+  resolution: '1sec' | '5sec' | '30sec' | '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week' = '1min'
 ): PriceData[] => {
   const cacheKey = generatePriceHistoryCacheKey(ticker, timeframe, resolution);
   
@@ -220,6 +220,15 @@ export const getPriceHistory = (
   let dataPoints: number;
   
   switch(resolution) {
+    case '1sec':
+      dataPoints = days * 24 * 60 * 60;
+      break;
+    case '5sec':
+      dataPoints = Math.ceil(days * 24 * 60 * 60 / 5);
+      break;
+    case '30sec':
+      dataPoints = Math.ceil(days * 24 * 60 * 60 / 30);
+      break;
     case '1min':
       dataPoints = days * 24 * 60;
       break;
@@ -246,12 +255,24 @@ export const getPriceHistory = (
   }
   
   // Limit data points to a reasonable number for performance
-  dataPoints = Math.min(dataPoints, 1000);
+  dataPoints = Math.min(dataPoints, 2000);
   
   // For intraday timeframes with lower resolutions, adjust the data points
-  if (timeframe === '1D' && resolution !== '1min') {
+  if (timeframe === '1D') {
     const hoursInDay = 6.5; // Trading hours in a day
     switch(resolution) {
+      case '1sec':
+        dataPoints = Math.ceil(hoursInDay * 60 * 60);
+        break;
+      case '5sec':
+        dataPoints = Math.ceil(hoursInDay * 60 * 60 / 5);
+        break;
+      case '30sec':
+        dataPoints = Math.ceil(hoursInDay * 60 * 60 / 30);
+        break;
+      case '1min':
+        dataPoints = Math.ceil(hoursInDay * 60);
+        break;
       case '5min':
         dataPoints = Math.ceil(hoursInDay * 60 / 5);
         break;
@@ -270,7 +291,11 @@ export const getPriceHistory = (
   // Calculate volatility based on timeframe and resolution
   let volatility = 0.02; // Default volatility
   
-  if (resolution === '1min') {
+  if (resolution === '1sec' || resolution === '5sec') {
+    volatility = 0.001;
+  } else if (resolution === '30sec') {
+    volatility = 0.002;
+  } else if (resolution === '1min') {
     volatility = 0.005;
   } else if (resolution === '5min') {
     volatility = 0.008;
