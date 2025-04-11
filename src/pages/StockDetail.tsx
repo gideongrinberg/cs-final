@@ -6,20 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getStockByTicker } from '@/services/stockService';
 import { formatCurrency } from '@/utils/stockUtils';
-import CandlestickChart from '@/components/charts/CandlestickChart';
+import StockChart from '@/components/charts/StockChart';
 import OrderForm from '@/components/trading/OrderForm';
 import { StockDetail as StockDetailType } from '@/services/stockService';
-import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
 
 const StockDetail = () => {
   const { ticker = '' } = useParams();
   const navigate = useNavigate();
   const [stock, setStock] = useState<StockDetailType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch initial stock data
   useEffect(() => {
     if (ticker) {
       const stockData = getStockByTicker(ticker);
@@ -32,43 +28,13 @@ const StockDetail = () => {
     setLoading(false);
   }, [ticker, navigate]);
 
-  // Set up periodic refresh of stock data
-  useEffect(() => {
-    if (!ticker) return;
-    
-    const refreshInterval = setInterval(() => {
-      setIsRefreshing(true);
-      const updatedStock = getStockByTicker(ticker);
-      if (updatedStock) {
-        setStock(updatedStock);
-        toast.info(`${ticker} data refreshed`);
-      }
-      setTimeout(() => setIsRefreshing(false), 500);
-    }, 30000); // Changed from 5000 to 30000 (30 seconds) to reduce frequent updates
-    
-    return () => clearInterval(refreshInterval);
-  }, [ticker]);
-
   if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-24" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Skeleton className="h-[400px] w-full" />
-            <Skeleton className="h-[300px] w-full mt-6" />
-          </div>
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   if (!stock) {
     return <div>Stock not found</div>;
   }
-
-  const isPositive = stock.percentChange >= 0;
 
   return (
     <div className="animate-fade-in">
@@ -78,29 +44,7 @@ const StockDetail = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold flex items-center">
-                    {ticker}
-                    {isRefreshing && (
-                      <span className="ml-2 inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                    )}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">{stock.name}</p>
-                </div>
-                <div className="mt-2 xs:mt-0">
-                  <p className="text-xl font-bold">{formatCurrency(stock.price)}</p>
-                  <p className={`text-sm ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {isPositive ? '+' : ''}{formatCurrency(stock.change)} ({stock.percentChange.toFixed(2)}%)
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <CandlestickChart 
+          <StockChart 
             ticker={stock.ticker} 
             stockName={stock.name}
             currentPrice={stock.price}
