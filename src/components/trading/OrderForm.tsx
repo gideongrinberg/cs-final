@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCurrency } from '@/utils/stockUtils';
 import { useStockContext } from '@/contexts/StockContext';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface OrderFormProps {
   ticker: string;
@@ -20,6 +22,8 @@ const OrderForm: React.FC<OrderFormProps> = ({ ticker, price, onComplete }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { portfolio, executeOrder } = useStockContext();
+  const { user } = useAuth();
+  const { toast } = useToast();
   
   const handleSharesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Allow only numbers and empty string
@@ -42,16 +46,49 @@ const OrderForm: React.FC<OrderFormProps> = ({ ticker, price, onComplete }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to place orders",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const parsedShares = parseShares();
-    if (parsedShares <= 0) return;
+    if (parsedShares <= 0) {
+      toast({
+        title: "Invalid shares",
+        description: "Please enter a valid number of shares",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
     try {
       const success = await executeOrder(ticker, parsedShares, tab);
-      if (success && onComplete) {
-        onComplete();
+      if (success) {
+        toast({
+          title: "Order executed successfully",
+          description: `${tab === 'buy' ? 'Bought' : 'Sold'} ${parsedShares} shares of ${ticker} at ${formatCurrency(price)}`,
+          variant: "default",
+        });
+        
+        if (onComplete) {
+          onComplete();
+        }
+        
+        // Reset form
+        setShares('1');
       }
+    } catch (error) {
+      toast({
+        title: "Order failed",
+        description: "There was an error processing your order",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

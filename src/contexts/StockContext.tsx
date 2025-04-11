@@ -10,6 +10,8 @@ import {
   getStockByTicker
 } from '@/services/stockService';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Order {
   ticker: string;
@@ -30,6 +32,7 @@ interface StockContextType {
   removeFromWatchlist: (ticker: string) => void;
   refreshData: () => void;
   loadingStocks: boolean;
+  modifyFunds: (amount: number) => void;
 }
 
 const StockContext = createContext<StockContextType | undefined>(undefined);
@@ -40,11 +43,15 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [orders, setOrders] = useState<Order[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>(['GOOGL', 'NFLX', 'DIS']);
   const [loadingStocks, setLoadingStocks] = useState(true);
+  const { user } = useAuth();
 
   // Load initial data
   useEffect(() => {
     refreshData();
-  }, []);
+    
+    // If we have a user, we would normally load their portfolio from the database
+    // For this simulation, we'll just use the mock data
+  }, [user]);
 
   // Refresh stock data
   const refreshData = () => {
@@ -53,6 +60,18 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setStocks(getPopularStocks());
       setLoadingStocks(false);
     }, 500); // Small timeout to simulate network request
+  };
+
+  // Modify funds (deposit or withdraw)
+  const modifyFunds = (amount: number) => {
+    setPortfolio(prev => {
+      const newBalance = prev.balance + amount;
+      return {
+        ...prev,
+        balance: +newBalance.toFixed(2),
+        totalValue: +(prev.totalValue + amount).toFixed(2)
+      };
+    });
   };
 
   // Execute a buy or sell order
@@ -200,7 +219,8 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         addToWatchlist,
         removeFromWatchlist,
         refreshData,
-        loadingStocks
+        loadingStocks,
+        modifyFunds
       }}
     >
       {children}
