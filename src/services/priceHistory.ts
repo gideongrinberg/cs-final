@@ -36,20 +36,43 @@ export const getPriceHistory = (
   if (!stock) return [];
   
   // Calculate days based on timeframe
-  const days = timeframe === '1D' ? 1 :
-               timeframe === '5D' ? 5 :
-               timeframe === '1W' ? 7 :
-               timeframe === '1M' ? 30 :
-               timeframe === '3M' ? 90 :
-               timeframe === '6M' ? 180 :
-               timeframe === '1Y' ? 365 : 1825;
+  let days: number;
+  
+  // Handle minute and hour timeframes
+  if (timeframe === '1m') {
+    days = 1/24/60; // 1 minute in days
+  } else if (timeframe === '5m') {
+    days = 5/24/60; // 5 minutes in days
+  } else if (timeframe === '15m') {
+    days = 15/24/60; // 15 minutes in days
+  } else if (timeframe === '30m') {
+    days = 30/24/60; // 30 minutes in days
+  } else if (timeframe === '1h') {
+    days = 1/24; // 1 hour in days
+  } else if (timeframe === '1D') {
+    days = 1;
+  } else if (timeframe === '5D') {
+    days = 5;
+  } else if (timeframe === '1W') {
+    days = 7;
+  } else if (timeframe === '1M') {
+    days = 30;
+  } else if (timeframe === '3M') {
+    days = 90;
+  } else if (timeframe === '6M') {
+    days = 180;
+  } else if (timeframe === '1Y') {
+    days = 365;
+  } else {
+    days = 1825; // 5Y
+  }
   
   // Calculate data points based on resolution and timeframe
   let dataPoints: number;
   
   switch(resolution) {
     case '1sec':
-      dataPoints = days * 24 * 60 * 60;
+      dataPoints = Math.ceil(days * 24 * 60 * 60);
       break;
     case '5sec':
       dataPoints = Math.ceil(days * 24 * 60 * 60 / 5);
@@ -58,7 +81,7 @@ export const getPriceHistory = (
       dataPoints = Math.ceil(days * 24 * 60 * 60 / 30);
       break;
     case '1min':
-      dataPoints = days * 24 * 60;
+      dataPoints = Math.ceil(days * 24 * 60);
       break;
     case '5min':
       dataPoints = Math.ceil(days * 24 * 60 / 5);
@@ -70,20 +93,20 @@ export const getPriceHistory = (
       dataPoints = Math.ceil(days * 24 * 60 / 30);
       break;
     case '1hour':
-      dataPoints = days * 24;
+      dataPoints = Math.ceil(days * 24);
       break;
     case '1day':
-      dataPoints = days;
+      dataPoints = Math.ceil(days);
       break;
     case '1week':
       dataPoints = Math.ceil(days / 7);
       break;
     default:
-      dataPoints = days * 24;
+      dataPoints = Math.ceil(days * 24);
   }
   
   // Limit data points to a reasonable number for performance
-  dataPoints = Math.min(dataPoints, 5000); // Increased from 2000 to handle 1sec resolution better
+  dataPoints = Math.min(dataPoints, 5000);
   
   // For intraday timeframes with lower resolutions, adjust the data points
   if (timeframe === '1D') {
@@ -132,6 +155,29 @@ export const getPriceHistory = (
       dataPoints = Math.ceil((hoursInDay * 60 * 60 / 5) * 5); // 5 days worth at 5sec resolution
     }
     dataPoints = Math.min(dataPoints, 5000); // Ensure we don't exceed our limit
+  } else if (['1m', '5m', '15m', '30m', '1h'].includes(timeframe)) {
+    // For minute and hour timeframes, adjust data points for high resolution
+    const minutesInTimeframe = timeframe === '1h' ? 60 : 
+                               timeframe === '30m' ? 30 : 
+                               timeframe === '15m' ? 15 : 
+                               timeframe === '5m' ? 5 : 1;
+    
+    switch(resolution) {
+      case '1sec':
+        dataPoints = Math.ceil(minutesInTimeframe * 60);
+        break;
+      case '5sec':
+        dataPoints = Math.ceil(minutesInTimeframe * 60 / 5);
+        break;
+      case '30sec':
+        dataPoints = Math.ceil(minutesInTimeframe * 60 / 30);
+        break;
+      case '1min':
+        dataPoints = Math.ceil(minutesInTimeframe);
+        break;
+      default:
+        dataPoints = Math.max(10, Math.ceil(minutesInTimeframe / 5)); // Ensure at least 10 data points
+    }
   }
   
   // Calculate volatility based on timeframe and resolution
@@ -155,6 +201,11 @@ export const getPriceHistory = (
     volatility = 0.02;
   } else if (resolution === '1week') {
     volatility = 0.03;
+  }
+  
+  // For minute timeframes, increase volatility slightly to make the chart more interesting
+  if (['1m', '5m', '15m', '30m'].includes(timeframe)) {
+    volatility *= 1.5;
   }
   
   // Generate price history and store in cache

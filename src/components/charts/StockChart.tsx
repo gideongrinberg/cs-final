@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Clock } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 interface StockChartProps {
@@ -138,8 +138,14 @@ const StockChart: React.FC<StockChartProps> = ({
   useEffect(() => {
     let defaultResolution: Resolution = '1min';
     
-    if (timeframe === '1D') {
+    if (['1m', '5m'].includes(timeframe)) {
       defaultResolution = '1sec';
+    } else if (['15m', '30m'].includes(timeframe)) {
+      defaultResolution = '5sec';
+    } else if (timeframe === '1h') {
+      defaultResolution = '30sec';
+    } else if (timeframe === '1D') {
+      defaultResolution = '1min';
     } else if (timeframe === '5D') {
       defaultResolution = '5min';
     } else if (timeframe === '1W') {
@@ -281,6 +287,14 @@ const StockChart: React.FC<StockChartProps> = ({
 
   const getAvailableResolutions = (): Resolution[] => {
     switch (timeframe) {
+      case '1m':
+      case '5m':
+        return ['1sec', '5sec', '30sec'];
+      case '15m':
+      case '30m':
+        return ['1sec', '5sec', '30sec', '1min'];
+      case '1h':
+        return ['1sec', '5sec', '30sec', '1min', '5min'];
       case '1D':
         return ['1sec', '5sec', '30sec', '1min', '5min', '15min', '30min'];
       case '5D':
@@ -317,6 +331,17 @@ const StockChart: React.FC<StockChartProps> = ({
     }
   };
 
+  const formatTimeframe = (tf: TimeFrame): string => {
+    switch (tf) {
+      case '1m': return '1 Min';
+      case '5m': return '5 Min';
+      case '15m': return '15 Min';
+      case '30m': return '30 Min';
+      case '1h': return '1 Hour';
+      default: return tf;
+    }
+  };
+
   const isPositive = percentChange >= 0;
 
   return (
@@ -337,6 +362,28 @@ const StockChart: React.FC<StockChartProps> = ({
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
           <div className="flex flex-wrap justify-start gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  <span>Minutes/Hours</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>Minute & Hour Views</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(['1m', '5m', '15m', '30m', '1h'] as TimeFrame[]).map((tf) => (
+                  <DropdownMenuItem 
+                    key={tf} 
+                    onClick={() => handleTimeframeChange(tf)}
+                    className={timeframe === tf ? "bg-accent" : ""}
+                  >
+                    {formatTimeframe(tf)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {(['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
               <Button
                 key={tf}

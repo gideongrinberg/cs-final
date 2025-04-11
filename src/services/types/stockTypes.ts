@@ -42,5 +42,5 @@ export interface Portfolio {
 }
 
 // Price history resolution and timeframe types
-export type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
+export type TimeFrame = '1m' | '5m' | '15m' | '30m' | '1h' | '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
 export type Resolution = '1sec' | '5sec' | '30sec' | '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
