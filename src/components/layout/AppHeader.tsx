@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Bell, Search, RefreshCw, LogOut, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bell, Search, RefreshCw, LogOut, User, Activity } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useStockContext } from '@/contexts/StockContext';
@@ -20,6 +20,17 @@ const AppHeader = () => {
   const { refreshData, loadingStocks, portfolio } = useStockContext();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [tickerActive, setTickerActive] = useState(false);
+
+  // Visual indicator for ticker activity
+  useEffect(() => {
+    const tickerPulse = setInterval(() => {
+      setTickerActive(true);
+      setTimeout(() => setTickerActive(false), 1000);
+    }, 5000); // Match this with the ticker interval in StockContext
+
+    return () => clearInterval(tickerPulse);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,6 +69,11 @@ const AppHeader = () => {
             <div className="hidden md:flex items-center mr-4 border-r pr-4">
               <span className="text-sm font-medium mr-2">Balance:</span>
               <span className="text-sm font-bold">{formatCurrency(portfolio.balance)}</span>
+            </div>
+            
+            <div className={`flex items-center gap-1 ${tickerActive ? 'text-success' : 'text-muted-foreground'}`}>
+              <Activity className={`h-4 w-4 ${tickerActive ? 'animate-pulse' : ''}`} />
+              <span className="text-xs hidden sm:inline">Live</span>
             </div>
             
             <Button 

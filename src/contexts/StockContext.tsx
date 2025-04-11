@@ -37,6 +37,9 @@ interface StockContextType {
 
 const StockContext = createContext<StockContextType | undefined>(undefined);
 
+// Default ticker interval in milliseconds (5 seconds)
+const DEFAULT_TICKER_INTERVAL = 5000;
+
 export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio>(getInitialPortfolio());
@@ -52,6 +55,53 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // If we have a user, we would normally load their portfolio from the database
     // For this simulation, we'll just use the mock data
   }, [user]);
+
+  // Set up ticker for real-time price updates
+  useEffect(() => {
+    // Initial load
+    refreshData();
+
+    // Set up ticker interval
+    const tickerInterval = setInterval(() => {
+      console.log("Ticker updating prices...");
+      setStocks(getPopularStocks());
+      
+      // Update portfolio values based on new stock prices
+      updatePortfolioValues();
+    }, DEFAULT_TICKER_INTERVAL);
+
+    // Clean up interval on unmount
+    return () => clearInterval(tickerInterval);
+  }, []);
+
+  // Update portfolio values based on current stock prices
+  const updatePortfolioValues = () => {
+    setPortfolio(prev => {
+      const updatedHoldings = [...prev.holdings];
+      let totalValue = prev.balance;
+      let totalCost = 0;
+      
+      // Recalculate holdings value based on current stock prices
+      updatedHoldings.forEach(holding => {
+        const stockForHolding = getPopularStocks().find(s => s.ticker === holding.ticker);
+        if (stockForHolding) {
+          totalValue += stockForHolding.price * holding.shares;
+          totalCost += holding.averageCost * holding.shares;
+        }
+      });
+      
+      const totalProfit = totalValue - prev.balance - totalCost;
+      const totalProfitPercent = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
+      return {
+        ...prev,
+        holdings: updatedHoldings,
+        totalValue: +totalValue.toFixed(2),
+        totalProfit: +totalProfit.toFixed(2),
+        totalProfitPercent: +totalProfitPercent.toFixed(2)
+      };
+    });
+  };
 
   // Refresh stock data
   const refreshData = () => {
