@@ -16,6 +16,17 @@ const MarketOverview = () => {
     { name: 'Russell 2000', value: 2026.32, change: -0.22 }
   ];
 
+  // Get daily top movers instead of tick-by-tick movers
+  const getDailyTopMovers = () => {
+    if (!stocks.length) return [];
+    
+    return [...stocks]
+      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+      .slice(0, 3);
+  };
+
+  const topMovers = getDailyTopMovers();
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -36,7 +47,7 @@ const MarketOverview = () => {
         </div>
 
         <div className="mt-6">
-          <h3 className="font-semibold mb-2">Top Movers</h3>
+          <h3 className="font-semibold mb-2">Top Daily Movers</h3>
           <div className="grid grid-cols-1 gap-2">
             {loadingStocks ? (
               Array(3).fill(0).map((_, i) => (
@@ -55,28 +66,25 @@ const MarketOverview = () => {
                 </div>
               ))
             ) : (
-              [...stocks]
-                .sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange))
-                .slice(0, 3)
-                .map((stock) => (
-                  <div key={stock.ticker} className="flex justify-between items-center p-3 rounded-md border">
-                    <div className="flex items-center space-x-2">
-                      <div className="h-8 w-8 bg-secondary rounded-md flex items-center justify-center">
-                        {stock.ticker.slice(0, 1)}
-                      </div>
-                      <div>
-                        <p className="font-medium">{stock.ticker}</p>
-                        <p className="text-sm text-muted-foreground">{stock.name}</p>
-                      </div>
+              topMovers.map((stock) => (
+                <div key={stock.ticker} className="flex justify-between items-center p-3 rounded-md border">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-8 w-8 bg-secondary rounded-md flex items-center justify-center">
+                      {stock.ticker.slice(0, 1)}
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(stock.price)}</p>
-                      <p className={`text-sm ${stock.percentChange >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {stock.percentChange >= 0 ? '+' : ''}{stock.percentChange}%
-                      </p>
+                    <div>
+                      <p className="font-medium">{stock.ticker}</p>
+                      <p className="text-sm text-muted-foreground">{stock.name}</p>
                     </div>
                   </div>
-                ))
+                  <div className="text-right">
+                    <p className="font-medium">{formatCurrency(stock.price)}</p>
+                    <p className={`text-sm ${stock.change >= 0 ? 'text-success' : 'text-danger'}`}>
+                      {stock.change >= 0 ? '+' : ''}{formatCurrency(stock.change)} ({stock.percentChange}%)
+                    </p>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
