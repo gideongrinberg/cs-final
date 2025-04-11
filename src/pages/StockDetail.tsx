@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getStockByTicker } from '@/services/stockService';
 import { formatCurrency } from '@/utils/stockUtils';
-import StockChart from '@/components/charts/StockChart';
+import CandlestickChart from '@/components/charts/CandlestickChart';
 import OrderForm from '@/components/trading/OrderForm';
 import { StockDetail as StockDetailType } from '@/services/stockService';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 
 const StockDetail = () => {
   const { ticker = '' } = useParams();
@@ -40,9 +41,10 @@ const StockDetail = () => {
       const updatedStock = getStockByTicker(ticker);
       if (updatedStock) {
         setStock(updatedStock);
+        toast.info(`${ticker} data refreshed`);
       }
       setTimeout(() => setIsRefreshing(false), 500);
-    }, 5000);
+    }, 30000); // Changed from 5000 to 30000 (30 seconds) to reduce frequent updates
     
     return () => clearInterval(refreshInterval);
   }, [ticker]);
@@ -98,7 +100,7 @@ const StockDetail = () => {
             </CardContent>
           </Card>
 
-          <StockChart 
+          <CandlestickChart 
             ticker={stock.ticker} 
             stockName={stock.name}
             currentPrice={stock.price}
