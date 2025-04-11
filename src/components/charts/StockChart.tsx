@@ -50,7 +50,6 @@ const StockChart: React.FC<StockChartProps> = ({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | ISeriesApi<"Candlestick"> | ISeriesApi<"Histogram"> | null>(null);
 
-  // Chart theme configuration based on the app theme
   const chartOptions = useMemo(() => {
     const isDarkTheme = theme === 'dark';
     
@@ -96,14 +95,11 @@ const StockChart: React.FC<StockChartProps> = ({
     };
   }, [theme]);
 
-  // Effect to initialize chart when component mounts or theme changes
   useEffect(() => {
     if (chartContainerRef.current) {
-      // If chart already exists, update its options
       if (chartRef.current) {
         chartRef.current.applyOptions(chartOptions);
       } else {
-        // Create chart instance
         const chart = createChart(chartContainerRef.current, {
           ...chartOptions,
           width: chartContainerRef.current.clientWidth,
@@ -112,7 +108,6 @@ const StockChart: React.FC<StockChartProps> = ({
 
         chartRef.current = chart;
         
-        // Make the chart responsive
         const handleResize = () => {
           if (chartContainerRef.current && chartRef.current) {
             chartRef.current.applyOptions({ 
@@ -123,7 +118,6 @@ const StockChart: React.FC<StockChartProps> = ({
 
         window.addEventListener('resize', handleResize);
         
-        // Cleanup function for unmounting
         return () => {
           window.removeEventListener('resize', handleResize);
           if (chartRef.current) {
@@ -134,7 +128,6 @@ const StockChart: React.FC<StockChartProps> = ({
         };
       }
       
-      // If data is already loaded, trigger the chart update effect
       if (dataLoaded && data.length > 0 && seriesRef.current) {
         chartRef.current.removeSeries(seriesRef.current);
         seriesRef.current = null;
@@ -142,13 +135,11 @@ const StockChart: React.FC<StockChartProps> = ({
     }
   }, [chartOptions, dataLoaded, data.length]);
 
-  // Effect to update chart data when timeframe or ticker changes
   useEffect(() => {
     let defaultResolution: Resolution = '1min';
     
-    // Determine appropriate default resolution based on timeframe
     if (timeframe === '1D') {
-      defaultResolution = '1min';
+      defaultResolution = '1sec';
     } else if (timeframe === '5D') {
       defaultResolution = '5min';
     } else if (timeframe === '1W') {
@@ -169,11 +160,9 @@ const StockChart: React.FC<StockChartProps> = ({
     setDataLoaded(true);
   }, [timeframe, ticker]);
 
-  // Effect to update chart when data or chart type changes
   useEffect(() => {
     if (!chartRef.current || !dataLoaded || data.length === 0) return;
 
-    // Remove previous series if it exists
     if (seriesRef.current) {
       chartRef.current.removeSeries(seriesRef.current);
       seriesRef.current = null;
@@ -187,7 +176,6 @@ const StockChart: React.FC<StockChartProps> = ({
     
     try {
       if (chartType === 'area') {
-        // Create area series for area chart
         const areaSeries = chartRef.current.addSeries(AreaSeries);
         areaSeries.applyOptions({
           lineColor: borderColor,
@@ -208,18 +196,7 @@ const StockChart: React.FC<StockChartProps> = ({
 
         areaSeries.setData(areaData);
         seriesRef.current = areaSeries;
-        
-        // Create price line at current price
-        // areaSeries.createPriceLine({
-        //   price: currentPrice,
-        //   color: borderColor,
-        //   lineWidth: 1,
-        //   lineStyle: 2, // Dashed line
-        //   axisLabelVisible: true,
-        //   title: 'Current Price',
-        // });
       } else if (chartType === 'candle') {
-        // Create candlestick series for OHLC chart
         const candleSeries = chartRef.current.addSeries(CandlestickSeries);
         candleSeries.applyOptions({
           upColor: wickUpColor,
@@ -235,7 +212,6 @@ const StockChart: React.FC<StockChartProps> = ({
           },
         });
 
-        // Generate OHLC data from price data
         const candleData = [];
         for (let i = 0; i < data.length; i++) {
           const currentPrice = data[i].price;
@@ -256,18 +232,7 @@ const StockChart: React.FC<StockChartProps> = ({
 
         candleSeries.setData(candleData);
         seriesRef.current = candleSeries;
-        
-        // Create price line at current price
-        // candleSeries.createPriceLine({
-        //   price: currentPrice,
-        //   color: 'rgba(220, 220, 220, 0.8)',
-        //   lineWidth: 1,
-        //   lineStyle: 2, // Dashed line
-        //   axisLabelVisible: true,
-        //   title: 'Current Price',
-        // });
       } else if (chartType === 'bar') {
-        // Create histogram series for bar chart
         const barSeries = chartRef.current.addSeries(HistogramSeries)
         barSeries.applyOptions({
           color: fillColor,
@@ -286,26 +251,14 @@ const StockChart: React.FC<StockChartProps> = ({
 
         barSeries.setData(barData);
         seriesRef.current = barSeries;
-        
-        // Create price line at current price
-        // barSeries.createPriceLine({
-        //   price: currentPrice,
-        //   color: 'rgba(220, 220, 220, 0.8)',
-        //   lineWidth: 1,
-        //   lineStyle: 2, // Dashed line
-        //   axisLabelVisible: true,
-        //   title: 'Current Price',
-        // });
       }
 
-      // Add tooltip for price formatting
       chartRef.current.applyOptions({
         localization: {
           priceFormatter: (price: number) => formatCurrency(price),
         },
       });
 
-      // Fit content to view all data
       chartRef.current.timeScale().fitContent();
     } catch (error) {
       console.error('Error rendering chart:', error);
@@ -331,9 +284,9 @@ const StockChart: React.FC<StockChartProps> = ({
       case '1D':
         return ['1sec', '5sec', '30sec', '1min', '5min', '15min', '30min'];
       case '5D':
-        return ['30sec', '1min', '5min', '15min', '30min', '1hour'];
+        return ['1sec', '5sec', '30sec', '1min', '5min', '15min', '30min', '1hour'];
       case '1W':
-        return ['1min', '5min', '15min', '30min', '1hour'];
+        return ['1sec', '5sec', '30sec', '1min', '5min', '15min', '30min', '1hour'];
       case '1M':
         return ['5min', '15min', '30min', '1hour', '1day'];
       case '3M':

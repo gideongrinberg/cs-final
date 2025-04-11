@@ -83,7 +83,7 @@ export const getPriceHistory = (
   }
   
   // Limit data points to a reasonable number for performance
-  dataPoints = Math.min(dataPoints, 2000);
+  dataPoints = Math.min(dataPoints, 5000); // Increased from 2000 to handle 1sec resolution better
   
   // For intraday timeframes with lower resolutions, adjust the data points
   if (timeframe === '1D') {
@@ -114,12 +114,32 @@ export const getPriceHistory = (
         dataPoints = Math.ceil(hoursInDay);
         break;
     }
+  } else if (timeframe === '5D' && (resolution === '1sec' || resolution === '5sec')) {
+    // Handle 1sec and 5sec for 5D timeframe - limit to one trading day's worth of points per day
+    const hoursInDay = 6.5;
+    if (resolution === '1sec') {
+      dataPoints = Math.ceil(hoursInDay * 60 * 60 * days);
+    } else { // 5sec
+      dataPoints = Math.ceil((hoursInDay * 60 * 60 / 5) * days);
+    }
+    dataPoints = Math.min(dataPoints, 5000); // Ensure we don't exceed our limit
+  } else if (timeframe === '1W' && (resolution === '1sec' || resolution === '5sec')) {
+    // Handle 1sec and 5sec for 1W timeframe - limit to reasonable amount
+    const hoursInDay = 6.5;
+    if (resolution === '1sec') {
+      dataPoints = Math.ceil(hoursInDay * 60 * 60 * 3); // Just show 3 days worth at 1sec resolution
+    } else { // 5sec
+      dataPoints = Math.ceil((hoursInDay * 60 * 60 / 5) * 5); // 5 days worth at 5sec resolution
+    }
+    dataPoints = Math.min(dataPoints, 5000); // Ensure we don't exceed our limit
   }
   
   // Calculate volatility based on timeframe and resolution
   let volatility = 0.02; // Default volatility
   
-  if (resolution === '1sec' || resolution === '5sec') {
+  if (resolution === '1sec') {
+    volatility = 0.0005; // Even smaller volatility for 1sec
+  } else if (resolution === '5sec') {
     volatility = 0.001;
   } else if (resolution === '30sec') {
     volatility = 0.002;
