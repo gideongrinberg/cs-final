@@ -16,12 +16,12 @@ const MarketOverview = () => {
     { name: 'Russell 2000', value: 2026.32, change: -0.22 }
   ];
 
-  // Get daily top movers instead of tick-by-tick movers
+  // Get daily top movers (using the full daily change)
   const getDailyTopMovers = () => {
     if (!stocks.length) return [];
     
     return [...stocks]
-      .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+      .sort((a, b) => Math.abs(b.percentChange) - Math.abs(a.percentChange))
       .slice(0, 3);
   };
 

@@ -1,6 +1,22 @@
-
 import { Stock } from './types/stockTypes';
 import { calculateChange } from '@/utils/stockUtils';
+
+// Keep track of daily price basis to ensure consistent daily changes
+const dailyPriceBasis: Record<string, { previousClose: number, dayStart: Date }> = {};
+
+// Check if we need to reset daily basis (new day)
+const resetDailyBasisIfNeeded = () => {
+  const now = new Date();
+  const today = now.toDateString();
+  
+  Object.keys(dailyPriceBasis).forEach(ticker => {
+    const { dayStart } = dailyPriceBasis[ticker];
+    if (dayStart.toDateString() !== today) {
+      // It's a new day, reset the basis with the last known price
+      delete dailyPriceBasis[ticker];
+    }
+  });
+};
 
 // Simulated stock data
 const popularStocks: Stock[] = [
@@ -80,10 +96,26 @@ const popularStocks: Stock[] = [
 
 // Get the list of popular stocks
 export const getPopularStocks = (): Stock[] => {
+  // Check if we need to reset for a new day
+  resetDailyBasisIfNeeded();
+  
   return popularStocks.map(stock => {
+    // Initialize daily basis if not already done for this stock
+    if (!dailyPriceBasis[stock.ticker]) {
+      dailyPriceBasis[stock.ticker] = {
+        previousClose: stock.price - stock.change, // Use the initial daily change
+        dayStart: new Date()
+      };
+    }
+    
     // Add some random movement to the price
     const newPrice = +(stock.price * (1 + (Math.random() * 0.04 - 0.02))).toFixed(2);
-    const { change, percentChange } = calculateChange(newPrice, stock.price - stock.change);
+    
+    // Calculate change against the previous close, not the last tick
+    const { change, percentChange } = calculateChange(
+      newPrice, 
+      dailyPriceBasis[stock.ticker].previousClose
+    );
     
     return {
       ...stock,

@@ -8,7 +8,7 @@ import { useStockContext } from '@/contexts/StockContext';
 const PortfolioSummary = () => {
   const { portfolio, stocks } = useStockContext();
   
-  // Calculate day change
+  // Calculate day change based on daily changes, not tick changes
   const calculateDayChange = () => {
     let dayChange = 0;
     let dayChangePercent = 0;
@@ -16,6 +16,7 @@ const PortfolioSummary = () => {
     portfolio.holdings.forEach(holding => {
       const stock = stocks.find(s => s.ticker === holding.ticker);
       if (stock) {
+        // Use the daily change, not just the tick change
         dayChange += stock.change * holding.shares;
       }
     });
@@ -73,7 +74,7 @@ const PortfolioSummary = () => {
                   {metric.change >= 0 ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
                   <span>
                     {metric.change >= 0 ? '+' : ''}{metric.change}
-                    {metric.isPercent ? '%' : ` (${metric.changePercent}%)`}
+                    {metric.isPercent ? '%' : ` (${metric.changePercent.toFixed(2)}%)`}
                   </span>
                 </div>
               )}

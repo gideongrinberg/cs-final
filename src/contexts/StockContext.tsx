@@ -42,14 +42,24 @@ const StockContext = createContext<StockContextType | undefined>(undefined);
 // Default ticker interval in milliseconds (5 seconds)
 const DEFAULT_TICKER_INTERVAL = 5000;
 
+// Cache daily price changes for consistent daily stats
+interface StockDailyCache {
+  [ticker: string]: { 
+    previousClose: number; 
+    dayOpen: number; 
+    lastUpdated: string;
+  };
+}
+
 export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio>(getInitialPortfolio());
   const [orders, setOrders] = useState<Order[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>(['GOOGL', 'NFLX', 'DIS']);
   const [loadingStocks, setLoadingStocks] = useState(true);
+  const [dailyStockCache, setDailyStockCache] = useState<StockDailyCache>({});
   const { user } = useAuth();
-
+  
   // Load user data from Supabase
   const loadUserData = async () => {
     if (!user) return;
@@ -85,7 +95,7 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Load watchlist
       const { data: watchlistData, error: watchlistError } = await supabase
         .from('watchlist_items')
-        .select('ticker')
+        .select('*')
         .eq('user_id', user.id);
       
       if (watchlistError) {
@@ -109,6 +119,24 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   };
 
+  // Initialize daily stock cache
+  const initializeDailyCache = () => {
+    const today = new Date().toDateString();
+    const stocksData = getPopularStocks();
+    
+    const newCache: StockDailyCache = {};
+    stocksData.forEach(stock => {
+      newCache[stock.ticker] = {
+        previousClose: stock.price - stock.change, // Use the current daily change
+        dayOpen: stock.price - (stock.change * 0.6), // Simulate an open price
+        lastUpdated: today
+      };
+    });
+    
+    setDailyStockCache(newCache);
+    return newCache;
+  };
+
   // Load initial data
   useEffect(() => {
     refreshData();
@@ -130,21 +158,53 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // Initial load
     refreshData();
 
+    // Set up daily cache if needed
+    const cache = Object.keys(dailyStockCache).length === 0 ? 
+      initializeDailyCache() : dailyStockCache;
+
+    // Reset cache at the start of a new day
+    const checkNewDay = () => {
+      const today = new Date().toDateString();
+      if (Object.values(cache)[0]?.lastUpdated !== today) {
+        console.log("New day detected, resetting daily cache");
+        initializeDailyCache();
+      }
+    };
+
     // Set up ticker interval
     const tickerInterval = setInterval(() => {
+      checkNewDay();
       console.log("Ticker updating prices...");
-      setStocks(getPopularStocks());
+      
+      // Get updated stock data
+      const updatedStocks = getPopularStocks().map(stock => {
+        // Ensure we maintain daily change values, not just tick changes
+        const cachedStock = dailyStockCache[stock.ticker];
+        if (cachedStock) {
+          const dailyChange = stock.price - cachedStock.previousClose;
+          const dailyPercentChange = (dailyChange / cachedStock.previousClose) * 100;
+          
+          return {
+            ...stock,
+            change: +dailyChange.toFixed(2),
+            percentChange: +dailyPercentChange.toFixed(2)
+          };
+        }
+        return stock;
+      });
+      
+      setStocks(updatedStocks);
       
       // Update portfolio values based on new stock prices
-      updatePortfolioValues();
+      updatePortfolioValues(updatedStocks);
     }, DEFAULT_TICKER_INTERVAL);
 
     // Clean up interval on unmount
     return () => clearInterval(tickerInterval);
-  }, []);
+  }, [dailyStockCache]);
 
   // Update portfolio values based on current stock prices
-  const updatePortfolioValues = () => {
+  const updatePortfolioValues = (currentStocks: Stock[]) => {
     setPortfolio(prev => {
       const updatedHoldings = [...prev.holdings];
       let totalValue = prev.balance;
@@ -152,7 +212,7 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       
       // Recalculate holdings value based on current stock prices
       updatedHoldings.forEach(holding => {
-        const stockForHolding = getPopularStocks().find(s => s.ticker === holding.ticker);
+        const stockForHolding = currentStocks.find(s => s.ticker === holding.ticker);
         if (stockForHolding) {
           totalValue += stockForHolding.price * holding.shares;
           totalCost += holding.averageCost * holding.shares;
@@ -176,7 +236,14 @@ export const StockProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const refreshData = () => {
     setLoadingStocks(true);
     setTimeout(() => {
-      setStocks(getPopularStocks());
+      const freshStocks = getPopularStocks();
+      
+      // Initialize daily cache if needed
+      if (Object.keys(dailyStockCache).length === 0) {
+        initializeDailyCache();
+      }
+      
+      setStocks(freshStocks);
       setLoadingStocks(false);
     }, 500); // Small timeout to simulate network request
   };
