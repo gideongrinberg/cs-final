@@ -1,14 +1,15 @@
 
 import React, { useState } from 'react';
 import { 
-  AreaChart, 
-  Area, 
+  BarChart, 
+  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  TooltipProps
+  TooltipProps,
+  Legend
 } from 'recharts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,8 +66,7 @@ const StockChart: React.FC<StockChartProps> = ({
   };
 
   const isPositive = percentChange >= 0;
-  const fillColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
-  const fillColorTransparent = isPositive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
+  const barColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
 
   return (
     <Card className="w-full">
@@ -86,16 +86,10 @@ const StockChart: React.FC<StockChartProps> = ({
         
         <div className="h-[300px] w-full price-chart-area">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
+            <BarChart
               data={data.map(d => ({ date: d.date.toISOString(), price: d.price }))}
               margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
-              <defs>
-                <linearGradient id={`colorPrice-${ticker}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={fillColor} stopOpacity={0.8} />
-                  <stop offset="95%" stopColor={fillColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
               <XAxis 
                 dataKey="date" 
@@ -114,14 +108,14 @@ const StockChart: React.FC<StockChartProps> = ({
                 tickLine={false}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Area 
-                type="monotone" 
+              <Legend />
+              <Bar 
                 dataKey="price" 
-                stroke={fillColor} 
-                fillOpacity={1}
-                fill={`url(#colorPrice-${ticker})`} 
+                fill={barColor}
+                name="Price"
+                radius={[2, 2, 0, 0]}
               />
-            </AreaChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
         
