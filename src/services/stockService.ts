@@ -1,3 +1,4 @@
+
 import { generatePriceHistory, calculateChange } from '@/utils/stockUtils';
 
 export interface Stock {
@@ -24,6 +25,13 @@ export interface PriceData {
   date: Date;
   price: number;
 }
+
+// Cache for price history data to maintain consistency
+interface PriceHistoryCache {
+  [key: string]: PriceData[];
+}
+
+const priceHistoryCache: PriceHistoryCache = {};
 
 // Simulated stock data
 const popularStocks: Stock[] = [
@@ -141,6 +149,15 @@ const generateStockDetails = (): Record<string, StockDetail> => {
 
 const stockDetails = generateStockDetails();
 
+// Generate a cache key for price history
+const generatePriceHistoryCacheKey = (
+  ticker: string,
+  timeframe: string,
+  resolution: string
+): string => {
+  return `${ticker}-${timeframe}-${resolution}`;
+};
+
 // Get the list of popular stocks
 export const getPopularStocks = (): Stock[] => {
   return popularStocks.map(stock => {
@@ -180,6 +197,13 @@ export const getPriceHistory = (
   timeframe: '1D' | '1W' | '1M' | '1Y' | '5Y' = '1D',
   resolution: '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week' = '1min'
 ): PriceData[] => {
+  const cacheKey = generatePriceHistoryCacheKey(ticker, timeframe, resolution);
+  
+  // Return cached data if it exists
+  if (priceHistoryCache[cacheKey]) {
+    return priceHistoryCache[cacheKey];
+  }
+  
   const stock = popularStocks.find(s => s.ticker === ticker);
   if (!stock) return [];
   
@@ -257,7 +281,11 @@ export const getPriceHistory = (
     volatility = 0.03;
   }
   
-  return generatePriceHistory(ticker, days, dataPoints, stock.price, volatility);
+  // Generate price history and store in cache
+  const priceData = generatePriceHistory(ticker, days, dataPoints, stock.price, volatility);
+  priceHistoryCache[cacheKey] = priceData;
+  
+  return priceData;
 };
 
 // Interface for portfolio holdings

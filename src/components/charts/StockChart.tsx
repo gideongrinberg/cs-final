@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   AreaChart, 
@@ -63,12 +62,10 @@ const CustomOHLCMarker = (props: any) => {
   const isPositive = close >= open;
   const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
   
-  // Define width of the open/close lines
   const openCloseLineWidth = 8;
   
   return (
     <g key={`ohlc-${index}`}>
-      {/* Vertical line from low to high */}
       <line 
         x1={cx} 
         y1={low} 
@@ -78,7 +75,6 @@ const CustomOHLCMarker = (props: any) => {
         strokeWidth={1} 
       />
       
-      {/* Horizontal line at open price */}
       <line 
         x1={cx - openCloseLineWidth} 
         y1={open} 
@@ -88,7 +84,6 @@ const CustomOHLCMarker = (props: any) => {
         strokeWidth={1.5} 
       />
       
-      {/* Horizontal line at close price */}
       <line 
         x1={cx} 
         y1={close} 
@@ -111,10 +106,10 @@ const StockChart: React.FC<StockChartProps> = ({
   const [timeframe, setTimeframe] = useState<TimeFrame>('1D');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [resolution, setResolution] = useState<Resolution>('1min');
-  const [data, setData] = useState(() => getPriceHistory(ticker, '1D', '1min'));
+  const [data, setData] = useState<Array<{ date: Date; price: number }>>([]);
   const [ohlcData, setOhlcData] = useState<OHLCData[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Set appropriate default resolution based on timeframe
   useEffect(() => {
     let defaultResolution: Resolution = '1min';
     
@@ -131,23 +126,20 @@ const StockChart: React.FC<StockChartProps> = ({
     }
     
     setResolution(defaultResolution);
-    setData(getPriceHistory(ticker, timeframe, defaultResolution));
+    const newData = getPriceHistory(ticker, timeframe, defaultResolution);
+    setData(newData);
+    setDataLoaded(true);
   }, [timeframe, ticker]);
 
-  // Generate OHLC data from price data
   useEffect(() => {
-    // For OHLC chart, we need to transform the data into open, high, low, close
     if (data.length > 0) {
-      // For simplicity, we'll generate synthetic OHLC data from our price data
       const ohlcPoints: OHLCData[] = [];
       
-      // For each price point, create an OHLC candle
       for (let i = 0; i < data.length; i++) {
         const currentPrice = data[i].price;
         
-        // Calculate synthetic open, high, low values
         const open = i > 0 ? data[i-1].price : currentPrice * (1 - Math.random() * 0.01);
-        const variance = currentPrice * 0.01; // 1% variance for high/low
+        const variance = currentPrice * 0.01;
         const high = Math.max(open, currentPrice) + Math.random() * variance;
         const low = Math.min(open, currentPrice) - Math.random() * variance;
         
@@ -171,11 +163,13 @@ const StockChart: React.FC<StockChartProps> = ({
 
   const handleChartTypeChange = (value: string) => {
     setChartType(value as ChartType);
+    // No need to reload data, just changing the visualization
   };
   
   const handleResolutionChange = (value: Resolution) => {
     setResolution(value);
-    setData(getPriceHistory(ticker, timeframe, value));
+    const newData = getPriceHistory(ticker, timeframe, value);
+    setData(newData);
   };
   
   const formatDate = (date: Date): string => {
@@ -219,7 +213,6 @@ const StockChart: React.FC<StockChartProps> = ({
   const fillColorTransparent = isPositive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
   const barColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
 
-  // Available resolutions based on selected timeframe
   const getAvailableResolutions = (): Resolution[] => {
     switch (timeframe) {
       case '1D':
@@ -237,7 +230,6 @@ const StockChart: React.FC<StockChartProps> = ({
     }
   };
 
-  // Format resolution for display
   const formatResolution = (res: Resolution): string => {
     switch (res) {
       case '1min': return '1 Min';
@@ -252,6 +244,14 @@ const StockChart: React.FC<StockChartProps> = ({
   };
 
   const renderChart = () => {
+    if (!dataLoaded) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-muted">Loading chart data...</p>
+        </div>
+      );
+    }
+    
     const chartData = data.map(d => ({ date: d.date.toISOString(), price: d.price }));
     const ohlcChartData = ohlcData.map(d => ({ 
       date: d.date.toISOString(), 
@@ -336,7 +336,6 @@ const StockChart: React.FC<StockChartProps> = ({
         </BarChart>
       );
     } else {
-      // OHLC Chart - Properly implemented
       return (
         <ComposedChart
           data={ohlcChartData}
@@ -362,7 +361,6 @@ const StockChart: React.FC<StockChartProps> = ({
           <Tooltip content={<CustomTooltip />} />
           <Legend />
           
-          {/* Display the price marker for each data point */}
           <Bar
             dataKey="open"
             fill="transparent"
@@ -392,11 +390,9 @@ const StockChart: React.FC<StockChartProps> = ({
             isAnimationActive={false}
           />
           
-          {/* Custom rendering of OHLC markers */}
           {ohlcChartData.map((entry, index) => {
             const x = 50 + (index * ((window.innerWidth * 0.75) / ohlcChartData.length));
             
-            // Determine color based on price movement
             const isPositive = entry.close >= entry.open;
             const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
             
@@ -406,7 +402,6 @@ const StockChart: React.FC<StockChartProps> = ({
                 type="monotone"
                 dataKey="close"
                 dot={(props) => {
-                  // Only render dot for this specific index
                   if (props.index !== index) return null;
                   
                   return (
@@ -464,7 +459,6 @@ const StockChart: React.FC<StockChartProps> = ({
             ))}
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            {/* Resolution Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
@@ -486,7 +480,6 @@ const StockChart: React.FC<StockChartProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* Chart Type Selector */}
             <Select value={chartType} onValueChange={handleChartTypeChange}>
               <SelectTrigger className="w-[110px]">
                 <SelectValue placeholder="Chart Type" />
