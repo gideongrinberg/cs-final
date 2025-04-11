@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Clock } from 'lucide-react';
+import { ChevronDown, Clock, Calendar } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 interface StockChartProps {
@@ -338,11 +338,23 @@ const StockChart: React.FC<StockChartProps> = ({
       case '15m': return '15 Min';
       case '30m': return '30 Min';
       case '1h': return '1 Hour';
+      case '1D': return '1 Day';
+      case '5D': return '5 Days';
+      case '1W': return '1 Week';
+      case '1M': return '1 Month';
+      case '3M': return '3 Months';
+      case '6M': return '6 Months';
+      case '1Y': return '1 Year';
+      case '5Y': return '5 Years';
       default: return tf;
     }
   };
 
   const isPositive = percentChange >= 0;
+  
+  const minuteHourTimeframes: TimeFrame[] = ['1m', '5m', '15m', '30m', '1h'];
+  const dayWeekTimeframes: TimeFrame[] = ['1D', '5D', '1W'];
+  const monthYearTimeframes: TimeFrame[] = ['1M', '3M', '6M', '1Y', '5Y'];
 
   return (
     <Card className="w-full">
@@ -365,14 +377,41 @@ const StockChart: React.FC<StockChartProps> = ({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>Minutes/Hours</span>
+                  <Calendar className="h-3 w-3" />
+                  <span>{formatTimeframe(timeframe)}</span>
+                  <ChevronDown className="h-3 w-3 ml-1" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuLabel>Minute & Hour Views</DropdownMenuLabel>
+                <DropdownMenuLabel>Timeframe</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {(['1m', '5m', '15m', '30m', '1h'] as TimeFrame[]).map((tf) => (
+                
+                <DropdownMenuLabel className="pt-2 text-xs text-muted-foreground">Minutes & Hours</DropdownMenuLabel>
+                {minuteHourTimeframes.map((tf) => (
+                  <DropdownMenuItem 
+                    key={tf} 
+                    onClick={() => handleTimeframeChange(tf)}
+                    className={timeframe === tf ? "bg-accent" : ""}
+                  >
+                    {formatTimeframe(tf)}
+                  </DropdownMenuItem>
+                ))}
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="pt-2 text-xs text-muted-foreground">Days & Weeks</DropdownMenuLabel>
+                {dayWeekTimeframes.map((tf) => (
+                  <DropdownMenuItem 
+                    key={tf} 
+                    onClick={() => handleTimeframeChange(tf)}
+                    className={timeframe === tf ? "bg-accent" : ""}
+                  >
+                    {formatTimeframe(tf)}
+                  </DropdownMenuItem>
+                ))}
+                
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="pt-2 text-xs text-muted-foreground">Months & Years</DropdownMenuLabel>
+                {monthYearTimeframes.map((tf) => (
                   <DropdownMenuItem 
                     key={tf} 
                     onClick={() => handleTimeframeChange(tf)}
@@ -383,23 +422,12 @@ const StockChart: React.FC<StockChartProps> = ({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {(['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
-              <Button
-                key={tf}
-                variant={timeframe === tf ? "default" : "secondary"}
-                size="sm"
-                onClick={() => handleTimeframeChange(tf)}
-                className="px-3"
-              >
-                {tf}
-              </Button>
-            ))}
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <Clock className="h-3 w-3 mr-1" />
                   {formatResolution(resolution)} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
