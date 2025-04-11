@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { 
+  AreaChart, 
+  Area, 
   BarChart, 
   Bar, 
   XAxis, 
@@ -15,6 +17,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getPriceHistory } from '@/services/stockService';
 import { formatCurrency } from '@/utils/stockUtils';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface StockChartProps {
   ticker: string;
@@ -25,6 +34,7 @@ interface StockChartProps {
 }
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
+type ChartType = 'area' | 'bar';
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -34,11 +44,16 @@ const StockChart: React.FC<StockChartProps> = ({
   percentChange 
 }) => {
   const [timeframe, setTimeframe] = useState<TimeFrame>('1D');
+  const [chartType, setChartType] = useState<ChartType>('area');
   const [data, setData] = useState(() => getPriceHistory(ticker, '1D'));
 
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
     setTimeframe(newTimeframe);
     setData(getPriceHistory(ticker, newTimeframe));
+  };
+
+  const handleChartTypeChange = (value: string) => {
+    setChartType(value as ChartType);
   };
   
   const formatDate = (date: Date): string => {
@@ -66,7 +81,89 @@ const StockChart: React.FC<StockChartProps> = ({
   };
 
   const isPositive = percentChange >= 0;
+  const fillColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+  const fillColorTransparent = isPositive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
   const barColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+
+  const renderChart = () => {
+    const chartData = data.map(d => ({ date: d.date.toISOString(), price: d.price }));
+    
+    if (chartType === 'area') {
+      return (
+        <AreaChart
+          data={chartData}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        >
+          <defs>
+            <linearGradient id={`colorPrice-${ticker}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={fillColor} stopOpacity={0.8} />
+              <stop offset="95%" stopColor={fillColor} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+          <XAxis 
+            dataKey="date" 
+            tickFormatter={(date) => formatDate(new Date(date))}
+            tick={{ fill: '#8E9196' }}
+            tickMargin={10}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis 
+            domain={['auto', 'auto']}
+            tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
+            tick={{ fill: '#8E9196' }}
+            orientation="right"
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Area 
+            type="monotone" 
+            dataKey="price" 
+            stroke={fillColor} 
+            fillOpacity={1}
+            fill={`url(#colorPrice-${ticker})`}
+            name="Price"
+          />
+        </AreaChart>
+      );
+    } else {
+      return (
+        <BarChart
+          data={chartData}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+          <XAxis 
+            dataKey="date" 
+            tickFormatter={(date) => formatDate(new Date(date))}
+            tick={{ fill: '#8E9196' }}
+            tickMargin={10}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis 
+            domain={['auto', 'auto']}
+            tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
+            tick={{ fill: '#8E9196' }}
+            orientation="right"
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Bar 
+            dataKey="price" 
+            fill={barColor}
+            name="Price"
+            radius={[2, 2, 0, 0]}
+          />
+        </BarChart>
+      );
+    }
+  };
 
   return (
     <Card className="w-full">
@@ -84,53 +181,37 @@ const StockChart: React.FC<StockChartProps> = ({
           </div>
         </div>
         
-        <div className="h-[300px] w-full price-chart-area">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data.map(d => ({ date: d.date.toISOString(), price: d.price }))}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={(date) => formatDate(new Date(date))}
-                tick={{ fill: '#8E9196' }}
-                tickMargin={10}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis 
-                domain={['auto', 'auto']}
-                tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
-                tick={{ fill: '#8E9196' }}
-                orientation="right"
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar 
-                dataKey="price" 
-                fill={barColor}
-                name="Price"
-                radius={[2, 2, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-center gap-2">
+            {(['1D', '1W', '1M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
+              <Button
+                key={tf}
+                variant={timeframe === tf ? "default" : "secondary"}
+                size="sm"
+                onClick={() => handleTimeframeChange(tf)}
+                className="px-3"
+              >
+                {tf}
+              </Button>
+            ))}
+          </div>
+          <div className="w-28">
+            <Select value={chartType} onValueChange={handleChartTypeChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Chart Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="area">Area</SelectItem>
+                <SelectItem value="bar">Bar</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         
-        <div className="flex justify-center gap-2 mt-4">
-          {(['1D', '1W', '1M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
-            <Button
-              key={tf}
-              variant={timeframe === tf ? "default" : "secondary"}
-              size="sm"
-              onClick={() => handleTimeframeChange(tf)}
-              className="px-3"
-            >
-              {tf}
-            </Button>
-          ))}
+        <div className="h-[300px] w-full price-chart-area">
+          <ResponsiveContainer width="100%" height="100%">
+            {renderChart()}
+          </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
