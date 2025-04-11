@@ -194,7 +194,7 @@ export const getStockByTicker = (ticker: string): StockDetail | undefined => {
 // Get price history for a ticker and timeframe with resolution
 export const getPriceHistory = (
   ticker: string,
-  timeframe: '1D' | '1W' | '1M' | '1Y' | '5Y' = '1D',
+  timeframe: '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y' = '1D',
   resolution: '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week' = '1min'
 ): PriceData[] => {
   const cacheKey = generatePriceHistoryCacheKey(ticker, timeframe, resolution);
@@ -209,8 +209,11 @@ export const getPriceHistory = (
   
   // Calculate days based on timeframe
   const days = timeframe === '1D' ? 1 :
+               timeframe === '5D' ? 5 :
                timeframe === '1W' ? 7 :
                timeframe === '1M' ? 30 :
+               timeframe === '3M' ? 90 :
+               timeframe === '6M' ? 180 :
                timeframe === '1Y' ? 365 : 1825;
   
   // Calculate data points based on resolution and timeframe
@@ -243,7 +246,7 @@ export const getPriceHistory = (
   }
   
   // Limit data points to a reasonable number for performance
-  dataPoints = Math.min(dataPoints, 500);
+  dataPoints = Math.min(dataPoints, 1000);
   
   // For intraday timeframes with lower resolutions, adjust the data points
   if (timeframe === '1D' && resolution !== '1min') {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, LineData, HistogramData, AreaSeries, AreaData, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,7 +31,7 @@ interface StockChartProps {
   percentChange: number;
 }
 
-type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
+type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
 type ChartType = 'area' | 'candle' | 'bar';
 type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
 
@@ -148,12 +149,17 @@ const StockChart: React.FC<StockChartProps> = ({
   useEffect(() => {
     let defaultResolution: Resolution = '1min';
     
+    // Determine appropriate default resolution based on timeframe
     if (timeframe === '1D') {
       defaultResolution = '1min';
+    } else if (timeframe === '5D') {
+      defaultResolution = '5min';
     } else if (timeframe === '1W') {
       defaultResolution = '15min';
     } else if (timeframe === '1M') {
       defaultResolution = '1hour';
+    } else if (timeframe === '3M' || timeframe === '6M') {
+      defaultResolution = '1day';
     } else if (timeframe === '1Y') {
       defaultResolution = '1day';
     } else if (timeframe === '5Y') {
@@ -339,10 +345,15 @@ const StockChart: React.FC<StockChartProps> = ({
     switch (timeframe) {
       case '1D':
         return ['1min', '5min', '15min', '30min'];
+      case '5D':
+        return ['5min', '15min', '30min', '1hour'];
       case '1W':
         return ['5min', '15min', '30min', '1hour'];
       case '1M':
         return ['15min', '30min', '1hour', '1day'];
+      case '3M':
+      case '6M':
+        return ['1hour', '1day', '1week'];
       case '1Y':
         return ['1hour', '1day', '1week'];
       case '5Y':
@@ -385,7 +396,7 @@ const StockChart: React.FC<StockChartProps> = ({
         
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
           <div className="flex flex-wrap justify-start gap-2">
-            {(['1D', '1W', '1M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
+            {(['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
               <Button
                 key={tf}
                 variant={timeframe === tf ? "default" : "secondary"}
