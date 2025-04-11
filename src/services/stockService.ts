@@ -1,4 +1,3 @@
-
 import { generatePriceHistory, calculateChange } from '@/utils/stockUtils';
 
 export interface Stock {
@@ -175,26 +174,90 @@ export const getStockByTicker = (ticker: string): StockDetail | undefined => {
   };
 };
 
-// Get price history for a ticker and timeframe
+// Get price history for a ticker and timeframe with resolution
 export const getPriceHistory = (
   ticker: string,
-  timeframe: '1D' | '1W' | '1M' | '1Y' | '5Y' = '1D'
+  timeframe: '1D' | '1W' | '1M' | '1Y' | '5Y' = '1D',
+  resolution: '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week' = '1min'
 ): PriceData[] => {
   const stock = popularStocks.find(s => s.ticker === ticker);
   if (!stock) return [];
   
+  // Calculate days based on timeframe
   const days = timeframe === '1D' ? 1 :
                timeframe === '1W' ? 7 :
                timeframe === '1M' ? 30 :
                timeframe === '1Y' ? 365 : 1825;
-               
-  const dataPoints = timeframe === '1D' ? 24 :
-                    timeframe === '1W' ? 7 * 8 :
-                    timeframe === '1M' ? 30 * 2 :
-                    timeframe === '1Y' ? 365 :
-                    timeframe === '5Y' ? 365 : 24;
   
-  return generatePriceHistory(ticker, days, dataPoints, stock.price, 0.02);
+  // Calculate data points based on resolution and timeframe
+  let dataPoints: number;
+  
+  switch(resolution) {
+    case '1min':
+      dataPoints = days * 24 * 60;
+      break;
+    case '5min':
+      dataPoints = Math.ceil(days * 24 * 60 / 5);
+      break;
+    case '15min':
+      dataPoints = Math.ceil(days * 24 * 60 / 15);
+      break;
+    case '30min':
+      dataPoints = Math.ceil(days * 24 * 60 / 30);
+      break;
+    case '1hour':
+      dataPoints = days * 24;
+      break;
+    case '1day':
+      dataPoints = days;
+      break;
+    case '1week':
+      dataPoints = Math.ceil(days / 7);
+      break;
+    default:
+      dataPoints = days * 24;
+  }
+  
+  // Limit data points to a reasonable number for performance
+  dataPoints = Math.min(dataPoints, 500);
+  
+  // For intraday timeframes with lower resolutions, adjust the data points
+  if (timeframe === '1D' && resolution !== '1min') {
+    const hoursInDay = 6.5; // Trading hours in a day
+    switch(resolution) {
+      case '5min':
+        dataPoints = Math.ceil(hoursInDay * 60 / 5);
+        break;
+      case '15min':
+        dataPoints = Math.ceil(hoursInDay * 60 / 15);
+        break;
+      case '30min':
+        dataPoints = Math.ceil(hoursInDay * 60 / 30);
+        break;
+      case '1hour':
+        dataPoints = Math.ceil(hoursInDay);
+        break;
+    }
+  }
+  
+  // Calculate volatility based on timeframe and resolution
+  let volatility = 0.02; // Default volatility
+  
+  if (resolution === '1min') {
+    volatility = 0.005;
+  } else if (resolution === '5min') {
+    volatility = 0.008;
+  } else if (resolution === '15min' || resolution === '30min') {
+    volatility = 0.01;
+  } else if (resolution === '1hour') {
+    volatility = 0.015;
+  } else if (resolution === '1day') {
+    volatility = 0.02;
+  } else if (resolution === '1week') {
+    volatility = 0.03;
+  }
+  
+  return generatePriceHistory(ticker, days, dataPoints, stock.price, volatility);
 };
 
 // Interface for portfolio holdings

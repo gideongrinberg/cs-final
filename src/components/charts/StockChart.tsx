@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   AreaChart, 
   Area, 
@@ -24,6 +24,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from 'lucide-react';
 
 interface StockChartProps {
   ticker: string;
@@ -35,6 +44,7 @@ interface StockChartProps {
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
 type ChartType = 'area' | 'bar';
+type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -45,15 +55,41 @@ const StockChart: React.FC<StockChartProps> = ({
 }) => {
   const [timeframe, setTimeframe] = useState<TimeFrame>('1D');
   const [chartType, setChartType] = useState<ChartType>('area');
-  const [data, setData] = useState(() => getPriceHistory(ticker, '1D'));
+  const [resolution, setResolution] = useState<Resolution>('1min');
+  const [data, setData] = useState(() => getPriceHistory(ticker, '1D', '1min'));
+
+  // Set appropriate default resolution based on timeframe
+  useEffect(() => {
+    let defaultResolution: Resolution = '1min';
+    
+    if (timeframe === '1D') {
+      defaultResolution = '1min';
+    } else if (timeframe === '1W') {
+      defaultResolution = '15min';
+    } else if (timeframe === '1M') {
+      defaultResolution = '1hour';
+    } else if (timeframe === '1Y') {
+      defaultResolution = '1day';
+    } else if (timeframe === '5Y') {
+      defaultResolution = '1week';
+    }
+    
+    setResolution(defaultResolution);
+    setData(getPriceHistory(ticker, timeframe, defaultResolution));
+  }, [timeframe, ticker]);
 
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
     setTimeframe(newTimeframe);
-    setData(getPriceHistory(ticker, newTimeframe));
+    // Resolution will be updated by the useEffect
   };
 
   const handleChartTypeChange = (value: string) => {
     setChartType(value as ChartType);
+  };
+  
+  const handleResolutionChange = (value: Resolution) => {
+    setResolution(value);
+    setData(getPriceHistory(ticker, timeframe, value));
   };
   
   const formatDate = (date: Date): string => {
@@ -84,6 +120,38 @@ const StockChart: React.FC<StockChartProps> = ({
   const fillColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
   const fillColorTransparent = isPositive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
   const barColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+
+  // Available resolutions based on selected timeframe
+  const getAvailableResolutions = (): Resolution[] => {
+    switch (timeframe) {
+      case '1D':
+        return ['1min', '5min', '15min', '30min'];
+      case '1W':
+        return ['5min', '15min', '30min', '1hour'];
+      case '1M':
+        return ['15min', '30min', '1hour', '1day'];
+      case '1Y':
+        return ['1hour', '1day', '1week'];
+      case '5Y':
+        return ['1day', '1week'];
+      default:
+        return ['1min', '5min', '15min', '30min', '1hour', '1day', '1week'];
+    }
+  };
+
+  // Format resolution for display
+  const formatResolution = (res: Resolution): string => {
+    switch (res) {
+      case '1min': return '1 Min';
+      case '5min': return '5 Min';
+      case '15min': return '15 Min';
+      case '30min': return '30 Min';
+      case '1hour': return '1 Hour';
+      case '1day': return '1 Day';
+      case '1week': return '1 Week';
+      default: return res;
+    }
+  };
 
   const renderChart = () => {
     const chartData = data.map(d => ({ date: d.date.toISOString(), price: d.price }));
@@ -181,8 +249,8 @@ const StockChart: React.FC<StockChartProps> = ({
           </div>
         </div>
         
-        <div className="flex justify-between items-center mb-2">
-          <div className="flex justify-center gap-2">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+          <div className="flex flex-wrap justify-start gap-2">
             {(['1D', '1W', '1M', '1Y', '5Y'] as TimeFrame[]).map((tf) => (
               <Button
                 key={tf}
@@ -195,8 +263,31 @@ const StockChart: React.FC<StockChartProps> = ({
               </Button>
             ))}
           </div>
-          <div className="w-28">
-            <Select value={chartType} onValueChange={handleChartTypeChange}>
+          <div className="flex gap-2 w-full sm:w-auto">
+            {/* Resolution Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  {formatResolution(resolution)} <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Resolution</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {getAvailableResolutions().map((res) => (
+                  <DropdownMenuItem 
+                    key={res} 
+                    onClick={() => handleResolutionChange(res)}
+                    className={resolution === res ? "bg-accent" : ""}
+                  >
+                    {formatResolution(res)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            {/* Chart Type Selector */}
+            <Select value={chartType} onValueChange={handleChartTypeChange} className="flex-1 sm:flex-none sm:w-28">
               <SelectTrigger>
                 <SelectValue placeholder="Chart Type" />
               </SelectTrigger>
