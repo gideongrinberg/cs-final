@@ -210,14 +210,14 @@ const StockChart: React.FC<StockChartProps> = ({
         seriesRef.current = areaSeries;
         
         // Create price line at current price
-        areaSeries.createPriceLine({
-          price: currentPrice,
-          color: borderColor,
-          lineWidth: 1,
-          lineStyle: 2, // Dashed line
-          axisLabelVisible: true,
-          title: 'Current Price',
-        });
+        // areaSeries.createPriceLine({
+        //   price: currentPrice,
+        //   color: borderColor,
+        //   lineWidth: 1,
+        //   lineStyle: 2, // Dashed line
+        //   axisLabelVisible: true,
+        //   title: 'Current Price',
+        // });
       } else if (chartType === 'candle') {
         // Create candlestick series for OHLC chart
         const candleSeries = chartRef.current.addSeries(CandlestickSeries);
@@ -258,14 +258,14 @@ const StockChart: React.FC<StockChartProps> = ({
         seriesRef.current = candleSeries;
         
         // Create price line at current price
-        candleSeries.createPriceLine({
-          price: currentPrice,
-          color: 'rgba(220, 220, 220, 0.8)',
-          lineWidth: 1,
-          lineStyle: 2, // Dashed line
-          axisLabelVisible: true,
-          title: 'Current Price',
-        });
+        // candleSeries.createPriceLine({
+        //   price: currentPrice,
+        //   color: 'rgba(220, 220, 220, 0.8)',
+        //   lineWidth: 1,
+        //   lineStyle: 2, // Dashed line
+        //   axisLabelVisible: true,
+        //   title: 'Current Price',
+        // });
       } else if (chartType === 'bar') {
         // Create histogram series for bar chart
         const barSeries = chartRef.current.addSeries(HistogramSeries)
@@ -288,14 +288,14 @@ const StockChart: React.FC<StockChartProps> = ({
         seriesRef.current = barSeries;
         
         // Create price line at current price
-        barSeries.createPriceLine({
-          price: currentPrice,
-          color: 'rgba(220, 220, 220, 0.8)',
-          lineWidth: 1,
-          lineStyle: 2, // Dashed line
-          axisLabelVisible: true,
-          title: 'Current Price',
-        });
+        // barSeries.createPriceLine({
+        //   price: currentPrice,
+        //   color: 'rgba(220, 220, 220, 0.8)',
+        //   lineWidth: 1,
+        //   lineStyle: 2, // Dashed line
+        //   axisLabelVisible: true,
+        //   title: 'Current Price',
+        // });
       }
 
       // Add tooltip for price formatting
