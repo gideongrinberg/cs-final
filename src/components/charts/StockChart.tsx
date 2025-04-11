@@ -1,19 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  AreaChart, 
-  Area, 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  TooltipProps,
-  Legend,
-  ComposedChart,
-  Line
-} from 'recharts';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickData, LineData, HistogramData, AreaSeries, AreaData, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getPriceHistory } from '@/services/stockService';
@@ -34,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 interface StockChartProps {
   ticker: string;
@@ -44,57 +31,8 @@ interface StockChartProps {
 }
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
-type ChartType = 'area' | 'bar' | 'ohlc';
+type ChartType = 'area' | 'candle' | 'bar';
 type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
-
-interface OHLCData {
-  date: Date;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-}
-
-// Custom OHLC marker component for the candlestick visualization
-const CustomOHLCMarker = (props: any) => {
-  const { cx, cy, open, close, low, high, index } = props;
-  
-  const isPositive = close >= open;
-  const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
-  
-  const openCloseLineWidth = 8;
-  
-  return (
-    <g key={`ohlc-${index}`}>
-      <line 
-        x1={cx} 
-        y1={low} 
-        x2={cx} 
-        y2={high} 
-        stroke={color} 
-        strokeWidth={1} 
-      />
-      
-      <line 
-        x1={cx - openCloseLineWidth} 
-        y1={open} 
-        x2={cx} 
-        y2={open} 
-        stroke={color} 
-        strokeWidth={1.5} 
-      />
-      
-      <line 
-        x1={cx} 
-        y1={close} 
-        x2={cx + openCloseLineWidth} 
-        y2={close} 
-        stroke={color} 
-        strokeWidth={1.5} 
-      />
-    </g>
-  );
-};
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -103,13 +41,110 @@ const StockChart: React.FC<StockChartProps> = ({
   change, 
   percentChange 
 }) => {
+  const { theme } = useTheme();
   const [timeframe, setTimeframe] = useState<TimeFrame>('1D');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [resolution, setResolution] = useState<Resolution>('1min');
   const [data, setData] = useState<Array<{ date: Date; price: number }>>([]);
-  const [ohlcData, setOhlcData] = useState<OHLCData[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area"> | ISeriesApi<"Candlestick"> | ISeriesApi<"Histogram"> | null>(null);
 
+  // Chart theme configuration based on the app theme
+  const chartOptions = useMemo(() => {
+    const isDarkTheme = theme === 'dark';
+    
+    return {
+      layout: {
+        background: { 
+          type: ColorType.Solid, 
+          color: 'transparent' 
+        },
+        textColor: isDarkTheme ? '#d1d5db' : '#606060',
+      },
+      grid: {
+        vertLines: { 
+          color: isDarkTheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(42, 46, 57, 0.1)' 
+        },
+        horzLines: { 
+          color: isDarkTheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(42, 46, 57, 0.1)' 
+        },
+      },
+      timeScale: {
+        borderColor: isDarkTheme ? 'rgba(255, 255, 255, 0.2)' : 'rgba(42, 46, 57, 0.2)',
+        timeVisible: true,
+      },
+      crosshair: {
+        mode: 0, // Normal crosshair mode
+        vertLine: {
+          color: isDarkTheme ? 'rgba(255, 255, 255, 0.3)' : 'rgba(42, 46, 57, 0.3)',
+          width: 1,
+          style: 1, // Solid line
+        },
+        horzLine: {
+          color: isDarkTheme ? 'rgba(255, 255, 255, 0.3)' : 'rgba(42, 46, 57, 0.3)',
+          width: 1,
+          style: 1, // Solid line
+        },
+      },
+      handleScale: {
+        axisPressedMouseMove: {
+          time: true,
+          price: true,
+        },
+      },
+    };
+  }, [theme]);
+
+  // Effect to initialize chart when component mounts or theme changes
+  useEffect(() => {
+    if (chartContainerRef.current) {
+      // If chart already exists, update its options
+      if (chartRef.current) {
+        chartRef.current.applyOptions(chartOptions);
+      } else {
+        // Create chart instance
+        const chart = createChart(chartContainerRef.current, {
+          ...chartOptions,
+          width: chartContainerRef.current.clientWidth,
+          height: 300,
+        });
+
+        chartRef.current = chart;
+        
+        // Make the chart responsive
+        const handleResize = () => {
+          if (chartContainerRef.current && chartRef.current) {
+            chartRef.current.applyOptions({ 
+              width: chartContainerRef.current.clientWidth,
+            });
+          }
+        };
+
+        window.addEventListener('resize', handleResize);
+        
+        // Cleanup function for unmounting
+        return () => {
+          window.removeEventListener('resize', handleResize);
+          if (chartRef.current) {
+            chartRef.current.remove();
+            chartRef.current = null;
+            seriesRef.current = null;
+          }
+        };
+      }
+      
+      // If data is already loaded, trigger the chart update effect
+      if (dataLoaded && data.length > 0 && seriesRef.current) {
+        chartRef.current.removeSeries(seriesRef.current);
+        seriesRef.current = null;
+      }
+    }
+  }, [chartOptions, dataLoaded, data.length]);
+
+  // Effect to update chart data when timeframe or ticker changes
   useEffect(() => {
     let defaultResolution: Resolution = '1min';
     
@@ -131,39 +166,167 @@ const StockChart: React.FC<StockChartProps> = ({
     setDataLoaded(true);
   }, [timeframe, ticker]);
 
+  // Effect to update chart when data or chart type changes
   useEffect(() => {
-    if (data.length > 0) {
-      const ohlcPoints: OHLCData[] = [];
-      
-      for (let i = 0; i < data.length; i++) {
-        const currentPrice = data[i].price;
+    if (!chartRef.current || !dataLoaded || data.length === 0) return;
+
+    // Remove previous series if it exists
+    if (seriesRef.current) {
+      chartRef.current.removeSeries(seriesRef.current);
+      seriesRef.current = null;
+    }
+
+    const isPositive = percentChange >= 0;
+    const fillColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+    const borderColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
+    const wickUpColor = "rgb(16, 185, 129)";
+    const wickDownColor = "rgb(239, 68, 68)";
+    
+    try {
+      if (chartType === 'area') {
+        // Create area series for area chart
+        const areaSeries = chartRef.current.addSeries(AreaSeries);
+        // {
+        //   lineColor: borderColor,
+        //   topColor: isPositive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+        //   bottomColor: isPositive ? 'rgba(16, 185, 129, 0.0)' : 'rgba(239, 68, 68, 0.0)',
+        //   lineWidth: 2,
+        //   priceFormat: {
+        //     type: 'price',
+        //     precision: 2,
+        //     minMove: 0.01,
+        //   },
+        // }
+        areaSeries.applyOptions({
+          lineColor: borderColor,
+          topColor: isPositive ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)',
+          bottomColor: isPositive ? 'rgba(16, 185, 129, 0.0)' : 'rgba(239, 68, 68, 0.0)',
+          lineWidth: 2,
+          priceFormat: {
+            type: "price",
+            precision: 2,
+            minMove: 0.01
+          }
+        });
+
+        const areaData: AreaData[] = data.map(item => ({
+          // Convert to unix timestamp in seconds
+          time: Math.floor(item.date.getTime() / 1000) as number,
+          value: item.price,
+        }));
+
+        areaSeries.setData(areaData);
+        seriesRef.current = areaSeries;
         
-        const open = i > 0 ? data[i-1].price : currentPrice * (1 - Math.random() * 0.01);
-        const variance = currentPrice * 0.01;
-        const high = Math.max(open, currentPrice) + Math.random() * variance;
-        const low = Math.min(open, currentPrice) - Math.random() * variance;
+        // Create price line at current price
+        areaSeries.createPriceLine({
+          price: currentPrice,
+          color: borderColor,
+          lineWidth: 1,
+          lineStyle: 2, // Dashed line
+          axisLabelVisible: true,
+          title: 'Current Price',
+        });
+      } else if (chartType === 'candle') {
+        // Create candlestick series for OHLC chart
+        const candleSeries = chartRef.current.addSeries(CandlestickSeries);
+        candleSeries.applyOptions({
+          upColor: wickUpColor,
+          downColor: wickDownColor,
+          borderUpColor: wickUpColor,
+          borderDownColor: wickDownColor,
+          wickUpColor: wickUpColor,
+          wickDownColor: wickDownColor,
+          priceFormat: {
+            type: 'price',
+            precision: 2,
+            minMove: 0.01,
+          },
+        });
+
+        // Generate OHLC data from price data
+        const candleData: CandlestickData[] = [];
+        for (let i = 0; i < data.length; i++) {
+          const currentPrice = data[i].price;
+          
+          const open = i > 0 ? data[i-1].price : currentPrice * (1 - Math.random() * 0.01);
+          const variance = currentPrice * 0.01;
+          const high = Math.max(open, currentPrice) + Math.random() * variance;
+          const low = Math.min(open, currentPrice) - Math.random() * variance;
+          
+          candleData.push({
+            time: Math.floor(data[i].date.getTime() / 1000) as number,
+            open,
+            high,
+            low,
+            close: currentPrice
+          });
+        }
+
+        candleSeries.setData(candleData);
+        seriesRef.current = candleSeries;
         
-        ohlcPoints.push({
-          date: data[i].date,
-          open,
-          high,
-          low,
-          close: currentPrice
+        // Create price line at current price
+        candleSeries.createPriceLine({
+          price: currentPrice,
+          color: 'rgba(220, 220, 220, 0.8)',
+          lineWidth: 1,
+          lineStyle: 2, // Dashed line
+          axisLabelVisible: true,
+          title: 'Current Price',
+        });
+      } else if (chartType === 'bar') {
+        // Create histogram series for bar chart
+        const barSeries = chartRef.current.addSeries(HistogramSeries)
+        barSeries.applyOptions({
+          color: fillColor,
+          priceFormat: {
+            type: 'price',
+            precision: 2,
+            minMove: 0.01,
+          },
+        });
+
+        const barData: HistogramData[] = data.map(item => ({
+          time: Math.floor(item.date.getTime() / 1000) as number,
+          value: item.price,
+          color: fillColor,
+        }));
+
+        barSeries.setData(barData);
+        seriesRef.current = barSeries;
+        
+        // Create price line at current price
+        barSeries.createPriceLine({
+          price: currentPrice,
+          color: 'rgba(220, 220, 220, 0.8)',
+          lineWidth: 1,
+          lineStyle: 2, // Dashed line
+          axisLabelVisible: true,
+          title: 'Current Price',
         });
       }
-      
-      setOhlcData(ohlcPoints);
+
+      // Add tooltip for price formatting
+      chartRef.current.applyOptions({
+        localization: {
+          priceFormatter: (price: number) => formatCurrency(price),
+        },
+      });
+
+      // Fit content to view all data
+      chartRef.current.timeScale().fitContent();
+    } catch (error) {
+      console.error('Error rendering chart:', error);
     }
-  }, [data]);
+  }, [data, chartType, percentChange, dataLoaded, currentPrice]);
 
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
     setTimeframe(newTimeframe);
-    // Resolution will be updated by the useEffect
   };
 
   const handleChartTypeChange = (value: string) => {
     setChartType(value as ChartType);
-    // No need to reload data, just changing the visualization
   };
   
   const handleResolutionChange = (value: Resolution) => {
@@ -171,47 +334,6 @@ const StockChart: React.FC<StockChartProps> = ({
     const newData = getPriceHistory(ticker, timeframe, value);
     setData(newData);
   };
-  
-  const formatDate = (date: Date): string => {
-    if (timeframe === '1D') {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (timeframe === '1W') {
-      return date.toLocaleDateString([], { weekday: 'short', hour: '2-digit' });
-    } else if (timeframe === '1M') {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    } else {
-      return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
-    }
-  };
-
-  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-    if (active && payload && payload.length) {
-      if (chartType === 'ohlc' && payload.length >= 4) {
-        return (
-          <div className="bg-secondary p-3 rounded-md border shadow-md">
-            <p className="text-sm font-medium">{formatDate(new Date(label))}</p>
-            <p className="text-sm">Open: {formatCurrency(payload[0].value as number)}</p>
-            <p className="text-sm">High: {formatCurrency(payload[1].value as number)}</p>
-            <p className="text-sm">Low: {formatCurrency(payload[2].value as number)}</p>
-            <p className="text-lg font-bold">Close: {formatCurrency(payload[3].value as number)}</p>
-          </div>
-        );
-      }
-      
-      return (
-        <div className="bg-secondary p-3 rounded-md border shadow-md">
-          <p className="text-sm font-medium">{formatDate(new Date(label))}</p>
-          <p className="text-lg font-bold">{formatCurrency(payload[0].value as number)}</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const isPositive = percentChange >= 0;
-  const fillColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
-  const fillColorTransparent = isPositive ? "rgba(16, 185, 129, 0.2)" : "rgba(239, 68, 68, 0.2)";
-  const barColor = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
 
   const getAvailableResolutions = (): Resolution[] => {
     switch (timeframe) {
@@ -243,190 +365,7 @@ const StockChart: React.FC<StockChartProps> = ({
     }
   };
 
-  const renderChart = () => {
-    if (!dataLoaded) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted">Loading chart data...</p>
-        </div>
-      );
-    }
-    
-    const chartData = data.map(d => ({ date: d.date.toISOString(), price: d.price }));
-    const ohlcChartData = ohlcData.map(d => ({ 
-      date: d.date.toISOString(), 
-      open: d.open,
-      high: d.high, 
-      low: d.low,
-      close: d.close,
-    }));
-    
-    if (chartType === 'area') {
-      return (
-        <AreaChart
-          data={chartData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-        >
-          <defs>
-            <linearGradient id={`colorPrice-${ticker}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={fillColor} stopOpacity={0.8} />
-              <stop offset="95%" stopColor={fillColor} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-          <XAxis 
-            dataKey="date" 
-            tickFormatter={(date) => formatDate(new Date(date))}
-            tick={{ fill: '#8E9196' }}
-            tickMargin={10}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis 
-            domain={['auto', 'auto']}
-            tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
-            tick={{ fill: '#8E9196' }}
-            orientation="right"
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          <Area 
-            type="monotone" 
-            dataKey="price" 
-            stroke={fillColor} 
-            fillOpacity={1}
-            fill={`url(#colorPrice-${ticker})`}
-            name="Price"
-          />
-        </AreaChart>
-      );
-    } else if (chartType === 'bar') {
-      return (
-        <BarChart
-          data={chartData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-          <XAxis 
-            dataKey="date" 
-            tickFormatter={(date) => formatDate(new Date(date))}
-            tick={{ fill: '#8E9196' }}
-            tickMargin={10}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis 
-            domain={['auto', 'auto']}
-            tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
-            tick={{ fill: '#8E9196' }}
-            orientation="right"
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          <Bar 
-            dataKey="price" 
-            fill={barColor}
-            name="Price"
-            radius={[2, 2, 0, 0]}
-          />
-        </BarChart>
-      );
-    } else {
-      return (
-        <ComposedChart
-          data={ohlcChartData}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-          <XAxis 
-            dataKey="date" 
-            tickFormatter={(date) => formatDate(new Date(date))}
-            tick={{ fill: '#8E9196' }}
-            tickMargin={10}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis 
-            domain={['auto', 'auto']}
-            tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
-            tick={{ fill: '#8E9196' }}
-            orientation="right"
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          
-          <Bar
-            dataKey="open"
-            fill="transparent"
-            stroke="transparent"
-            name="Open"
-            isAnimationActive={false}
-          />
-          <Bar
-            dataKey="high"
-            fill="transparent"
-            stroke="transparent"
-            name="High"
-            isAnimationActive={false}
-          />
-          <Bar
-            dataKey="low"
-            fill="transparent"
-            stroke="transparent"
-            name="Low"
-            isAnimationActive={false}
-          />
-          <Bar
-            dataKey="close"
-            fill="transparent"
-            stroke="transparent"
-            name="Close"
-            isAnimationActive={false}
-          />
-          
-          {ohlcChartData.map((entry, index) => {
-            const x = 50 + (index * ((window.innerWidth * 0.75) / ohlcChartData.length));
-            
-            const isPositive = entry.close >= entry.open;
-            const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
-            
-            return (
-              <Line
-                key={`ohlc-${index}`}
-                type="monotone"
-                dataKey="close"
-                dot={(props) => {
-                  if (props.index !== index) return null;
-                  
-                  return (
-                    <CustomOHLCMarker
-                      cx={props.cx}
-                      cy={props.cy}
-                      open={props.cy + (entry.open - entry.close)}
-                      close={props.cy}
-                      high={props.cy - (entry.high - entry.close)}
-                      low={props.cy + (entry.close - entry.low)}
-                      index={index}
-                    />
-                  );
-                }}
-                activeDot={false}
-                stroke="transparent"
-                isAnimationActive={false}
-                legendType="none"
-              />
-            );
-          })}
-        </ComposedChart>
-      );
-    }
-  };
+  const isPositive = percentChange >= 0;
 
   return (
     <Card className="w-full">
@@ -486,17 +425,19 @@ const StockChart: React.FC<StockChartProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="area">Area</SelectItem>
+                <SelectItem value="candle">Candle</SelectItem>
                 <SelectItem value="bar">Bar</SelectItem>
-                <SelectItem value="ohlc">OHLC</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         
-        <div className="h-[300px] w-full price-chart-area">
-          <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-          </ResponsiveContainer>
+        <div className="h-[300px] w-full price-chart-area" ref={chartContainerRef}>
+          {!dataLoaded && (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted">Loading chart data...</p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
