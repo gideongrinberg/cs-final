@@ -44,10 +44,6 @@ interface StockChartProps {
   percentChange: number;
 }
 
-type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
-type ChartType = 'area' | 'bar' | 'ohlc';
-type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
-
 interface OHLCData {
   date: Date;
   open: number;
@@ -56,15 +52,27 @@ interface OHLCData {
   close: number;
 }
 
-// Custom OHLC marker component for the candlestick visualization
-const CustomOHLCMarker = (props: any) => {
-  const { cx, cy, open, close, low, high, index } = props;
-  
-  const isPositive = close >= open;
+type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
+type ChartType = 'area' | 'bar' | 'ohlc';
+type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
+
+interface OHLCMarkerProps {
+  cx: number;      // x-coordinate center
+  cy: number;      // y-coordinate (not used, but often provided by charting libs)
+  open: number;    // y-coordinate for open
+  high: number;    // y-coordinate for high
+  low: number;     // y-coordinate for low
+  close: number;   // y-coordinate for close
+  index: number;   // index for the data point
+  width?: number;  // optional width for the candle
+}
+
+// Fixed OHLC marker (line-based)
+const OHLCMarker = ({ cx, open, close, low, high, index, width = 6 }: OHLCMarkerProps) => {
+  const isPositive = close <= open;
   const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
-  
-  // Define width of the open/close lines
-  const openCloseLineWidth = 2;
+  const wickWidth = 1;
+  const tickWidth = width / 2;
   
   return (
     <g key={`ohlc-${index}`}>
@@ -75,27 +83,27 @@ const CustomOHLCMarker = (props: any) => {
         x2={cx} 
         y2={high} 
         stroke={color} 
-        strokeWidth={1} 
+        strokeWidth={wickWidth} 
       />
       
       {/* Horizontal line at open price */}
       <line 
-        x1={cx - openCloseLineWidth} 
+        x1={cx - tickWidth} 
         y1={open} 
         x2={cx} 
         y2={open} 
         stroke={color} 
-        strokeWidth={1.5} 
+        strokeWidth={wickWidth} 
       />
       
       {/* Horizontal line at close price */}
       <line 
         x1={cx} 
         y1={close} 
-        x2={cx + openCloseLineWidth} 
+        x2={cx + tickWidth} 
         y2={close} 
         stroke={color} 
-        strokeWidth={1.5} 
+        strokeWidth={wickWidth} 
       />
     </g>
   );
