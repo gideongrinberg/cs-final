@@ -64,7 +64,7 @@ const CustomOHLCMarker = (props: any) => {
   const color = isPositive ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)";
   
   // Define width of the open/close lines
-  const openCloseLineWidth = 8;
+  const openCloseLineWidth = 2;
   
   return (
     <g key={`ohlc-${index}`}>
