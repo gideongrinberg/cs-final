@@ -49,18 +49,18 @@ const Trading = () => {
           
           <div className="mt-6">
             <h3 className="font-semibold mb-4">Popular Stocks to Trade</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {stocks.slice(0, 8).map(stock => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+              {stocks.slice(0, 24).map(stock => (
                 <button
                   key={stock.ticker}
                   onClick={() => navigate(`/stocks/${stock.ticker}`)}
-                  className="p-4 border rounded-lg hover:bg-secondary/50 transition-colors"
+                  className="p-3 border rounded-lg hover:bg-secondary/50 transition-colors"
                 >
                   <div className="h-8 w-8 bg-secondary rounded-md flex items-center justify-center mb-2">
                     {stock.ticker.slice(0, 1)}
                   </div>
                   <p className="font-semibold">{stock.ticker}</p>
-                  <p className="text-sm text-muted-foreground truncate">{stock.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{stock.name.length > 20 ? stock.name.slice(0, 20) + '...' : stock.name}</p>
                 </button>
               ))}
             </div>
