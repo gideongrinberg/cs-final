@@ -11,7 +11,8 @@ import {
   Tooltip, 
   ResponsiveContainer,
   TooltipProps,
-  Legend
+  Legend,
+  ReferenceLine
 } from 'recharts';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,8 +44,16 @@ interface StockChartProps {
 }
 
 type TimeFrame = '1D' | '1W' | '1M' | '1Y' | '5Y';
-type ChartType = 'area' | 'bar';
+type ChartType = 'area' | 'bar' | 'ohlc';
 type Resolution = '1min' | '5min' | '15min' | '30min' | '1hour' | '1day' | '1week';
+
+interface OHLCData {
+  date: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
 
 const StockChart: React.FC<StockChartProps> = ({ 
   ticker, 
@@ -57,6 +66,7 @@ const StockChart: React.FC<StockChartProps> = ({
   const [chartType, setChartType] = useState<ChartType>('area');
   const [resolution, setResolution] = useState<Resolution>('1min');
   const [data, setData] = useState(() => getPriceHistory(ticker, '1D', '1min'));
+  const [ohlcData, setOhlcData] = useState<OHLCData[]>([]);
 
   // Set appropriate default resolution based on timeframe
   useEffect(() => {
@@ -77,6 +87,36 @@ const StockChart: React.FC<StockChartProps> = ({
     setResolution(defaultResolution);
     setData(getPriceHistory(ticker, timeframe, defaultResolution));
   }, [timeframe, ticker]);
+
+  // Generate OHLC data from price data
+  useEffect(() => {
+    // For OHLC chart, we need to transform the data into open, high, low, close
+    if (data.length > 0) {
+      // For simplicity, we'll generate synthetic OHLC data from our price data
+      const ohlcPoints: OHLCData[] = [];
+      
+      // For each price point, create an OHLC candle
+      for (let i = 0; i < data.length; i++) {
+        const currentPrice = data[i].price;
+        
+        // Calculate synthetic open, high, low values
+        const open = i > 0 ? data[i-1].price : currentPrice * (1 - Math.random() * 0.01);
+        const variance = currentPrice * 0.01; // 1% variance for high/low
+        const high = Math.max(open, currentPrice) + Math.random() * variance;
+        const low = Math.min(open, currentPrice) - Math.random() * variance;
+        
+        ohlcPoints.push({
+          date: data[i].date,
+          open,
+          high,
+          low,
+          close: currentPrice
+        });
+      }
+      
+      setOhlcData(ohlcPoints);
+    }
+  }, [data]);
 
   const handleTimeframeChange = (newTimeframe: TimeFrame) => {
     setTimeframe(newTimeframe);
@@ -106,6 +146,18 @@ const StockChart: React.FC<StockChartProps> = ({
 
   const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
+      if (chartType === 'ohlc' && payload.length >= 4) {
+        return (
+          <div className="bg-secondary p-3 rounded-md border shadow-md">
+            <p className="text-sm font-medium">{formatDate(new Date(label))}</p>
+            <p className="text-sm">Open: {formatCurrency(payload[0].value as number)}</p>
+            <p className="text-sm">High: {formatCurrency(payload[1].value as number)}</p>
+            <p className="text-sm">Low: {formatCurrency(payload[2].value as number)}</p>
+            <p className="text-lg font-bold">Close: {formatCurrency(payload[3].value as number)}</p>
+          </div>
+        );
+      }
+      
       return (
         <div className="bg-secondary p-3 rounded-md border shadow-md">
           <p className="text-sm font-medium">{formatDate(new Date(label))}</p>
@@ -155,6 +207,13 @@ const StockChart: React.FC<StockChartProps> = ({
 
   const renderChart = () => {
     const chartData = data.map(d => ({ date: d.date.toISOString(), price: d.price }));
+    const ohlcChartData = ohlcData.map(d => ({ 
+      date: d.date.toISOString(), 
+      open: d.open,
+      high: d.high, 
+      low: d.low,
+      close: d.close,
+    }));
     
     if (chartType === 'area') {
       return (
@@ -197,7 +256,7 @@ const StockChart: React.FC<StockChartProps> = ({
           />
         </AreaChart>
       );
-    } else {
+    } else if (chartType === 'bar') {
       return (
         <BarChart
           data={chartData}
@@ -227,6 +286,93 @@ const StockChart: React.FC<StockChartProps> = ({
             fill={barColor}
             name="Price"
             radius={[2, 2, 0, 0]}
+          />
+        </BarChart>
+      );
+    } else {
+      // OHLC Chart
+      return (
+        <BarChart
+          data={ohlcChartData}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+          <XAxis 
+            dataKey="date" 
+            tickFormatter={(date) => formatDate(new Date(date))}
+            tick={{ fill: '#8E9196' }}
+            tickMargin={10}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis 
+            domain={['auto', 'auto']}
+            tickFormatter={(value) => formatCurrency(value).replace('.00', '')}
+            tick={{ fill: '#8E9196' }}
+            orientation="right"
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          {/* Render the OHLC price range line for each data point */}
+          {ohlcChartData.map((entry, index) => (
+            <React.Fragment key={`ohlc-${index}`}>
+              {/* Vertical line from low to high */}
+              <ReferenceLine
+                segment={[
+                  { x: entry.date, y: entry.low },
+                  { x: entry.date, y: entry.high }
+                ]}
+                stroke="#8884d8"
+                strokeWidth={1}
+                ifOverflow="extendDomain"
+              />
+              {/* Horizontal line at open price */}
+              <ReferenceLine
+                segment={[
+                  { x: +(new Date(entry.date).getTime() - 200000), y: entry.open },
+                  { x: entry.date, y: entry.open }
+                ]}
+                stroke="#82ca9d"
+                strokeWidth={1.5}
+                ifOverflow="extendDomain"
+              />
+              {/* Horizontal line at close price */}
+              <ReferenceLine
+                segment={[
+                  { x: entry.date, y: entry.close },
+                  { x: +(new Date(entry.date).getTime() + 200000), y: entry.close }
+                ]}
+                stroke={entry.close >= entry.open ? "rgb(16, 185, 129)" : "rgb(239, 68, 68)"}
+                strokeWidth={1.5}
+                ifOverflow="extendDomain"
+              />
+            </React.Fragment>
+          ))}
+          <Bar 
+            dataKey="open" 
+            fillOpacity={0}
+            strokeOpacity={0}
+            name="Open"
+          />
+          <Bar 
+            dataKey="high" 
+            fillOpacity={0}
+            strokeOpacity={0}
+            name="High"
+          />
+          <Bar 
+            dataKey="low" 
+            fillOpacity={0}
+            strokeOpacity={0}
+            name="Low"
+          />
+          <Bar 
+            dataKey="close" 
+            fillOpacity={0}
+            strokeOpacity={0}
+            name="Close"
           />
         </BarChart>
       );
@@ -287,13 +433,14 @@ const StockChart: React.FC<StockChartProps> = ({
             </DropdownMenu>
             
             {/* Chart Type Selector */}
-            <Select value={chartType} onValueChange={handleChartTypeChange} className="flex-1 sm:flex-none sm:w-28">
-              <SelectTrigger>
+            <Select value={chartType} onValueChange={handleChartTypeChange}>
+              <SelectTrigger className="w-[110px]">
                 <SelectValue placeholder="Chart Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="area">Area</SelectItem>
                 <SelectItem value="bar">Bar</SelectItem>
+                <SelectItem value="ohlc">OHLC</SelectItem>
               </SelectContent>
             </Select>
           </div>
